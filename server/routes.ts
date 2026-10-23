@@ -17,6 +17,7 @@ import {
   insertSettingsSchema,
   insertGalleryItemSchema,
   insertReviewSchema,
+  insertTeamSchema,
   insertFixtureSchema,
   insertCompetitionSchema,
 } from "@shared/schema";
@@ -69,6 +70,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const parse = insertSettingsSchema.partial().safeParse(req.body);
     if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
     res.json(await storage.updateSettings(parse.data));
+  });
+
+  // ========= TEAMS =========
+
+  app.get("/api/public/teams", async (_req, res) => {
+    res.json(await storage.listTeams());
+  });
+  app.get("/api/admin/teams", async (_req, res) => {
+    res.json(await storage.listTeams());
+  });
+  app.post("/api/admin/teams", async (req, res) => {
+    const parse = insertTeamSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    res.json(await storage.createTeam(parse.data));
+  });
+  app.patch("/api/admin/teams/:id", async (req, res) => {
+    const parse = insertTeamSchema.partial().safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const updated = await storage.updateTeam(Number(req.params.id), parse.data);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+  app.delete("/api/admin/teams/:id", async (req, res) => {
+    res.json({ ok: await storage.deleteTeam(Number(req.params.id)) });
   });
 
   // ========= FIXTURES =========

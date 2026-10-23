@@ -69,6 +69,26 @@ export const insertPageSchema = createInsertSchema(pages).omit({ id: true, creat
 export type InsertPage = z.infer<typeof insertPageSchema>;
 export type Page = typeof pages.$inferSelect;
 
+// Teams — one row per age-group squad the club runs (e.g. "Under 10s").
+// Fixtures reference a team by its name (a free-text string, matched by the
+// CSV import too), not a foreign key — keeps the import format simple.
+export const teams = sqliteTable("teams", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(), // e.g. "Under 10s" — matched against fixtures.team
+  ageGroup: text("age_group").notNull().default(""), // e.g. "U10"
+  coachName: text("coach_name").notNull().default(""),
+  coachEmail: text("coach_email").notNull().default(""),
+  coachPhone: text("coach_phone").notNull().default(""),
+  trainingInfo: text("training_info").notNull().default(""), // e.g. "Tuesdays 6-7pm, Riverside Rec"
+  description: text("description").notNull().default(""),
+  photoUrl: text("photo_url").notNull().default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+});
+export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, createdAt: true });
+export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type Team = typeof teams.$inferSelect;
+
 // Fixtures & results — one row per match, per team (a club runs several
 // age-group teams, each with their own fixture list).
 export const fixtures = sqliteTable("fixtures", {

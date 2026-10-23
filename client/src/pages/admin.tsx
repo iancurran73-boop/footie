@@ -23,7 +23,7 @@ import {
   Building2, Palette, ScrollText, MapPin, Mail, Layers, Eye, EyeOff, Users, Search,
   Trophy, Gavel, Ticket, Flag, Upload, Table2, Share2,
 } from "lucide-react";
-import type { Settings, Review, Fixture, Competition, Entry, Bid, LeagueTableRow, SocialPost } from "@shared/schema";
+import type { Settings, Review, Team, Fixture, Competition, Entry, Bid, LeagueTableRow, SocialPost } from "@shared/schema";
 import { AdminGate, AdminLogout } from "@/components/admin-gate";
 import { useContent, useGalleryItems, useContentMutations } from "@/lib/content";
 import type { GalleryItem } from "@/lib/content";
@@ -2012,6 +2012,8 @@ function FixturesTab() {
 
   return (
     <div className="space-y-10 mt-5">
+      <TeamsSection />
+
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -2062,6 +2064,151 @@ function FixturesTab() {
 
       <LeagueTablesSection />
     </div>
+  );
+}
+
+function TeamsSection() {
+  const { data: teams = [] } = useQuery<Team[]>({ queryKey: ["/api/admin/teams"] });
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Team | null>(null);
+
+  const sorted = [...teams].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Teams</h1>
+          <p className="text-sm text-muted-foreground">The age-group squads shown on the public Teams page.</p>
+        </div>
+        <Button onClick={() => { setEditing(null); setOpen(true); }} data-testid="button-add-team">
+          <Plus className="size-4 mr-1" /> Add team
+        </Button>
+      </div>
+
+      {sorted.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted-foreground border-dashed">No teams yet.</Card>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map((t) => (
+            <Card key={t.id} className="p-4 bg-card flex items-center gap-3 hover-elevate" data-testid={`row-team-${t.id}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-bold text-foreground">{t.name}</span>
+                  {t.ageGroup && <Badge variant="outline" className="text-[10px]">{t.ageGroup}</Badge>}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {t.coachName ? `Coach: ${t.coachName}` : "No coach set"}{t.trainingInfo ? ` · ${t.trainingInfo}` : ""}
+                </div>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => { setEditing(t); setOpen(true); }} data-testid={`button-edit-team-${t.id}`}>
+                <Pencil className="size-4" />
+              </Button>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <TeamDialog key={editing?.id ?? "new"} open={open} onClose={() => setOpen(false)} team={editing} />
+    </div>
+  );
+}
+
+function TeamDialog({ open, onClose, team }: { open: boolean; onClose: () => void; team: Team | null }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    name: team?.name ?? "",
+    ageGroup: team?.ageGroup ?? "",
+    coachName: team?.coachName ?? "",
+    coachEmail: team?.coachEmail ?? "",
+    coachPhone: team?.coachPhone ?? "",
+    trainingInfo: team?.trainingInfo ?? "",
+    description: team?.description ?? "",
+    photoUrl: team?.photoUrl ?? "",
+    sortOrder: team?.sortOrder?.toString() ?? "0",
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = { ...form, sortOrder: Number(form.sortOrder) || 0 };
+      return team
+        ? apiRequest("PATCH", `/api/admin/teams/${team.id}`, payload)
+        : apiRequest("POST", "/api/admin/teams", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/teams"] });
+      onClose();
+    },
+    onError: (e: Error) => toast({ title: "Couldn't save team", description: e.message, variant: "destructive" }),
+  });
+
+  const remove = useMutation({
+    mutationFn: async () => apiRequest("DELETE", `/api/admin/teams/${team!.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/teams"] });
+      onClose();
+    },
+    onError: (e: Error) => toast({ title: "Couldn't delete team", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{team ? "Edit team" : "Add team"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Team name <span className="text-muted-foreground font-normal text-xs">(must match the "team" used in Fixtures)</span></Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Under 10s" data-testid="input-team-name" />
+          </div>
+          <div>
+            <Label>Age group <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <Input value={form.ageGroup} onChange={(e) => setForm({ ...form, ageGroup: e.target.value })} placeholder="e.g. U10" data-testid="input-team-agegroup" />
+          </div>
+          <div>
+            <Label>Description <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="input-team-description" />
+          </div>
+          <div>
+            <Label>Coach name <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <Input value={form.coachName} onChange={(e) => setForm({ ...form, coachName: e.target.value })} data-testid="input-team-coachname" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Coach email <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Input type="email" value={form.coachEmail} onChange={(e) => setForm({ ...form, coachEmail: e.target.value })} data-testid="input-team-coachemail" />
+            </div>
+            <div>
+              <Label>Coach phone <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Input value={form.coachPhone} onChange={(e) => setForm({ ...form, coachPhone: e.target.value })} data-testid="input-team-coachphone" />
+            </div>
+          </div>
+          <div>
+            <Label>Training info <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <Input value={form.trainingInfo} onChange={(e) => setForm({ ...form, trainingInfo: e.target.value })} placeholder="e.g. Tuesdays 6-7pm, Riverside Rec" data-testid="input-team-training" />
+          </div>
+          <div>
+            <Label>Team photo URL <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <Input value={form.photoUrl} onChange={(e) => setForm({ ...form, photoUrl: e.target.value })} placeholder="https://…" data-testid="input-team-photo" />
+          </div>
+          <div>
+            <Label>Sort order <span className="text-muted-foreground font-normal text-xs">(lower shows first)</span></Label>
+            <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} data-testid="input-team-sortorder" />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {team && (
+            <Button variant="outline" onClick={() => remove.mutate()} disabled={remove.isPending} data-testid="button-delete-team">
+              <Trash2 className="size-4 mr-1" /> Delete
+            </Button>
+          )}
+          <Button onClick={() => save.mutate()} disabled={save.isPending || !form.name} data-testid="button-save-team">
+            {save.isPending ? <Loader2 className="size-4 mr-1 animate-spin" /> : null} Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

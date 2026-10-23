@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrandThemeProvider } from "@/components/brand-theme-provider";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
+import Teams from "@/pages/teams";
 import Fixtures from "@/pages/fixtures";
 import Competitions from "@/pages/competitions";
 import CompetitionDetail from "@/pages/competition-detail";
@@ -19,6 +20,7 @@ function AppRouter() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/teams" component={Teams} />
       <Route path="/fixtures" component={Fixtures} />
       <Route path="/gallery" component={Gallery} />
       <Route path="/about" component={About} />

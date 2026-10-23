@@ -4,6 +4,7 @@ import {
   galleryItems,
   reviews,
   pages,
+  teams,
   fixtures,
   competitions,
   entries,
@@ -17,6 +18,7 @@ import type {
   GalleryItem, InsertGalleryItem,
   Review, InsertReview,
   Page, InsertPage,
+  Team, InsertTeam,
   Fixture, InsertFixture,
   Competition, InsertCompetition,
   Entry, InsertEntry,
@@ -84,6 +86,19 @@ sqlite.exec(`
     layout TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     visible INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS teams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    age_group TEXT NOT NULL DEFAULT '',
+    coach_name TEXT NOT NULL DEFAULT '',
+    coach_email TEXT NOT NULL DEFAULT '',
+    coach_phone TEXT NOT NULL DEFAULT '',
+    training_info TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    photo_url TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL
   );
   CREATE TABLE IF NOT EXISTS fixtures (
@@ -187,11 +202,12 @@ const seedIfEmpty = () => {
     const now = Date.now();
     const coreSeed: InsertPage[] = [
       { slug: "home", navLabel: "Home", path: "/", kind: "core", layout: null, sortOrder: 0, visible: true },
-      { slug: "fixtures", navLabel: "Fixtures & Results", path: "/fixtures", kind: "core", layout: null, sortOrder: 1, visible: true },
-      { slug: "competitions", navLabel: "Raffles & Auctions", path: "/competitions", kind: "core", layout: null, sortOrder: 2, visible: true },
-      { slug: "gallery", navLabel: "Gallery", path: "/gallery", kind: "core", layout: null, sortOrder: 3, visible: true },
-      { slug: "about", navLabel: "About", path: "/about", kind: "core", layout: null, sortOrder: 4, visible: true },
-      { slug: "contact", navLabel: "Contact", path: "/contact", kind: "core", layout: null, sortOrder: 5, visible: true },
+      { slug: "teams", navLabel: "Teams", path: "/teams", kind: "core", layout: null, sortOrder: 1, visible: true },
+      { slug: "fixtures", navLabel: "Fixtures & Results", path: "/fixtures", kind: "core", layout: null, sortOrder: 2, visible: true },
+      { slug: "competitions", navLabel: "Raffles & Auctions", path: "/competitions", kind: "core", layout: null, sortOrder: 3, visible: true },
+      { slug: "gallery", navLabel: "Gallery", path: "/gallery", kind: "core", layout: null, sortOrder: 4, visible: true },
+      { slug: "about", navLabel: "About", path: "/about", kind: "core", layout: null, sortOrder: 5, visible: true },
+      { slug: "contact", navLabel: "Contact", path: "/contact", kind: "core", layout: null, sortOrder: 6, visible: true },
     ];
     for (const p of coreSeed) db.insert(pages).values({ ...p, createdAt: now }).run();
   }
@@ -230,6 +246,13 @@ export interface IStorage {
   createPage(data: InsertPage): Promise<Page>;
   updatePage(id: number, data: Partial<InsertPage>): Promise<Page | undefined>;
   deletePage(id: number): Promise<boolean>;
+
+  // teams
+  listTeams(): Promise<Team[]>;
+  getTeam(id: number): Promise<Team | undefined>;
+  createTeam(data: InsertTeam): Promise<Team>;
+  updateTeam(id: number, data: Partial<InsertTeam>): Promise<Team | undefined>;
+  deleteTeam(id: number): Promise<boolean>;
 
   // fixtures
   listFixtures(team?: string): Promise<Fixture[]>;
@@ -368,6 +391,24 @@ export class DatabaseStorage implements IStorage {
   }
   async deletePage(id: number) {
     const r = db.delete(pages).where(eq(pages.id, id)).run();
+    return r.changes > 0;
+  }
+
+  async listTeams() {
+    return db.select().from(teams).orderBy(asc(teams.sortOrder), asc(teams.id)).all();
+  }
+  async getTeam(id: number) {
+    return db.select().from(teams).where(eq(teams.id, id)).get();
+  }
+  async createTeam(data: InsertTeam) {
+    return db.insert(teams).values({ ...data, createdAt: Date.now() }).returning().get();
+  }
+  async updateTeam(id: number, data: Partial<InsertTeam>) {
+    db.update(teams).set(data).where(eq(teams.id, id)).run();
+    return db.select().from(teams).where(eq(teams.id, id)).get();
+  }
+  async deleteTeam(id: number) {
+    const r = db.delete(teams).where(eq(teams.id, id)).run();
     return r.changes > 0;
   }
 

@@ -22,11 +22,12 @@ export interface SitePage {
 
 const FALLBACK_PAGES: SitePage[] = [
   { id: -1, slug: "home", navLabel: "Home", path: "/", kind: "core", layout: null, sortOrder: 0, visible: true },
-  { id: -2, slug: "how-it-works", navLabel: "How It Works", path: "/how-it-works", kind: "core", layout: null, sortOrder: 1, visible: true },
-  { id: -3, slug: "services", navLabel: "Services", path: "/services", kind: "core", layout: null, sortOrder: 2, visible: true },
-  { id: -4, slug: "gallery", navLabel: "Gallery", path: "/gallery", kind: "core", layout: null, sortOrder: 3, visible: true },
-  { id: -5, slug: "about", navLabel: "About", path: "/about", kind: "core", layout: null, sortOrder: 4, visible: true },
-  { id: -6, slug: "contact", navLabel: "Contact", path: "/contact", kind: "core", layout: null, sortOrder: 5, visible: true },
+  { id: -2, slug: "teams", navLabel: "Teams", path: "/teams", kind: "core", layout: null, sortOrder: 1, visible: true },
+  { id: -3, slug: "fixtures", navLabel: "Fixtures & Results", path: "/fixtures", kind: "core", layout: null, sortOrder: 2, visible: true },
+  { id: -4, slug: "competitions", navLabel: "Raffles & Auctions", path: "/competitions", kind: "core", layout: null, sortOrder: 3, visible: true },
+  { id: -5, slug: "gallery", navLabel: "Gallery", path: "/gallery", kind: "core", layout: null, sortOrder: 4, visible: true },
+  { id: -6, slug: "about", navLabel: "About", path: "/about", kind: "core", layout: null, sortOrder: 5, visible: true },
+  { id: -7, slug: "contact", navLabel: "Contact", path: "/contact", kind: "core", layout: null, sortOrder: 6, visible: true },
 ];
 
 async function fetchPages(): Promise<SitePage[]> {

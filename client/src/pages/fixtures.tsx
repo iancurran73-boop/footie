@@ -18,7 +18,9 @@ const { brand } = config;
 export default function Fixtures() {
   const { data: fixtures = [] } = useQuery<Fixture[]>({ queryKey: ["/api/public/fixtures"] });
   const { data: leagueRows = [] } = useQuery<LeagueTableRow[]>({ queryKey: ["/api/public/league-tables"] });
-  const [team, setTeam] = useState<string>("all");
+  const [team, setTeam] = useState<string>(
+    () => new URLSearchParams(window.location.search).get("team") || "all"
+  );
 
   useEffect(() => {
     applySeo({
