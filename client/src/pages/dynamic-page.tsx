@@ -18,7 +18,7 @@ import { useContent } from "@/lib/content";
 import { useBrand } from "@/lib/brand";
 import type { SitePage } from "@/lib/pages";
 import type { Review } from "@shared/schema";
-import { ArrowRight, PawPrint, Home, Settings2, Droplets, Scissors, Plug, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Flag, Trophy, Users, Shield, Star, CircleDot } from "lucide-react";
 import NotFound from "@/pages/not-found";
 
 async function fetchPage(slug: string): Promise<SitePage | null> {
@@ -28,7 +28,7 @@ async function fetchPage(slug: string): Promise<SitePage | null> {
   return res.json();
 }
 
-const STEP_ICONS = [Home, Settings2, Droplets, Scissors, Plug, Sparkles];
+const STEP_ICONS = [Flag, Trophy, Users, Shield, Star];
 
 function Hero({ title, intro }: { title: string; intro: string }) {
   return (
@@ -45,9 +45,9 @@ function CtaFooter() {
   return (
     <section className="py-16 sm:py-20 bg-background text-center">
       <div className="max-w-2xl mx-auto px-4 sm:px-6">
-        <h2 className="font-display font-extrabold text-3xl sm:text-4xl tracking-tight">Ready to book?</h2>
+        <h2 className="font-display font-extrabold text-3xl sm:text-4xl tracking-tight">Get involved</h2>
         <div className="mt-7 flex flex-wrap justify-center gap-3">
-          <Link href="/book"><Button size="lg" className="rounded-full px-8 py-6 text-base font-semibold">Book online</Button></Link>
+          <Link href="/competitions"><Button size="lg" className="rounded-full px-8 py-6 text-base font-semibold">Raffles &amp; auctions</Button></Link>
           <Link href="/contact"><Button size="lg" variant="outline" className="rounded-full px-8 py-6 text-base">Get in touch</Button></Link>
         </div>
       </div>
@@ -70,7 +70,7 @@ function StepsLayout({ slug, title, intro }: { slug: string; title: string; intr
           ) : (
             <ol className="space-y-6">
               {steps.map((step, i) => {
-                const Icon = STEP_ICONS[i] ?? PawPrint;
+                const Icon = STEP_ICONS[i] ?? CircleDot;
                 return (
                   <li key={i} className="flex gap-5 sm:gap-6 items-start">
                     <div className="shrink-0 flex flex-col items-center">

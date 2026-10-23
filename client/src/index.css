@@ -5,8 +5,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Sophie's Pampered Paws — brand tokens
-   Warm pink, gold and cream keep the look friendly, premium and pet-focused. */
+/* Default brand tokens — overridden at runtime by BrandThemeProvider from
+   tenant.config.ts / the admin Branding tab. These are just the fallback. */
 
 /* LIGHT MODE */
 :root {

@@ -32,7 +32,7 @@ export function BrandMark({ className = "h-12 w-auto" }: BrandMarkProps) {
       />
     );
   }
-  // SVG paw mark fallback when no logoPath configured
+  // SVG football mark fallback when no logoPath configured
   return (
     <svg
       className={className}
@@ -41,15 +41,13 @@ export function BrandMark({ className = "h-12 w-auto" }: BrandMarkProps) {
       aria-label={config.brand.shortName}
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Four toe pads */}
-      <ellipse cx="18" cy="22" rx="5.5" ry="7" fill="currentColor" />
-      <ellipse cx="30" cy="15" rx="5.5" ry="7" fill="currentColor" />
-      <ellipse cx="42" cy="15" rx="5.5" ry="7" fill="currentColor" />
-      <ellipse cx="54" cy="22" rx="5.5" ry="7" fill="currentColor" />
-      {/* Main paw pad */}
+      <circle cx="32" cy="32" r="27" stroke="currentColor" strokeWidth="2.5" />
+      <polygon points="32,20 40.5,26.2 37.3,36.2 26.7,36.2 23.5,26.2" fill="currentColor" />
       <path
-        d="M36 28c-9 0-17 6.5-17 16 0 5.5 4 9 9 9 3 0 5-1.5 8-1.5s5 1.5 8 1.5c5 0 9-3.5 9-9 0-9.5-8-16-17-16z"
-        fill="currentColor"
+        d="M32 20 L32 10.5 M40.5 26.2 L49.5 23 M37.3 36.2 L42.5 44.5 M26.7 36.2 L21.5 44.5 M23.5 26.2 L14.5 23"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
       />
     </svg>
   );

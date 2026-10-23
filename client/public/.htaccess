@@ -1,4 +1,4 @@
-# Sophie's Pampered Paws — Netlify/Apache config
+# Riverside Juniors FC — Netlify/Apache config
 # Single-page-app routing + caching + HTTPS redirect
 
 <IfModule mod_rewrite.c>
