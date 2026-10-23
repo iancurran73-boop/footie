@@ -2189,8 +2189,8 @@ function TeamDialog({ open, onClose, team }: { open: boolean; onClose: () => voi
             <Input value={form.trainingInfo} onChange={(e) => setForm({ ...form, trainingInfo: e.target.value })} placeholder="e.g. Tuesdays 6-7pm, Riverside Rec" data-testid="input-team-training" />
           </div>
           <div>
-            <Label>Team photo URL <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
-            <Input value={form.photoUrl} onChange={(e) => setForm({ ...form, photoUrl: e.target.value })} placeholder="https://…" data-testid="input-team-photo" />
+            <Label className="mb-1 block">Team photo <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <ImageDropzone testId="team-photo" currentUrl={form.photoUrl} alt="Team photo" onUploaded={(url) => setForm({ ...form, photoUrl: url })} />
           </div>
           <div>
             <Label>Sort order <span className="text-muted-foreground font-normal text-xs">(lower shows first)</span></Label>
@@ -2538,8 +2538,8 @@ function CompetitionDialog({ open, onClose }: { open: boolean; onClose: () => vo
             <Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="input-competition-description" />
           </div>
           <div>
-            <Label>Image URL <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
-            <Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://…" data-testid="input-competition-image" />
+            <Label className="mb-1 block">Prize photo <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <ImageDropzone testId="competition-image" currentUrl={form.imageUrl} alt="Prize photo" onUploaded={(url) => setForm({ ...form, imageUrl: url })} />
           </div>
 
           {form.type === "raffle" ? (

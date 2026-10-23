@@ -11,26 +11,37 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, ImageIcon, CheckCircle2, Trash2 } from "lucide-react";
 
 interface ImageDropzoneProps {
-  /** Content key to write the URL to, e.g. "home.heroImage" */
-  contentKey: string;
-  /** Current image URL (from c(key, fallback)) */
+  /**
+   * Content key to write the URL to, e.g. "home.heroImage" — use this when
+   * the image belongs to the content k/v table (page copy, About image, etc).
+   * Omit it and use `onUploaded` instead when the URL belongs to local form
+   * state (e.g. a field on a Competition/Team record saved via its own API).
+   */
+  contentKey?: string;
+  /** Called with the uploaded image's data URL. Required when contentKey is omitted. */
+  onUploaded?: (url: string) => void;
+  /** Current image URL (from c(key, fallback), or local form state) */
   currentUrl?: string;
   /** Alt text for the thumbnail preview */
   alt?: string;
+  /** Stable id for data-testid when contentKey is omitted */
+  testId?: string;
 }
 
-export function ImageDropzone({ contentKey, currentUrl, alt = "Preview" }: ImageDropzoneProps) {
+export function ImageDropzone({ contentKey, onUploaded, currentUrl, alt = "Preview", testId }: ImageDropzoneProps) {
   const { uploadImage, setImage } = useContentMutations();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const id = contentKey ?? testId ?? "custom";
 
   async function handleRemove() {
     if (!window.confirm("Remove this image?")) return;
     try {
-      await setImage(contentKey, "");
+      if (contentKey) await setImage(contentKey, "");
+      else onUploaded?.("");
       toast({ title: "Image removed" });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Could not remove image";
@@ -47,7 +58,8 @@ export function ImageDropzone({ contentKey, currentUrl, alt = "Preview" }: Image
     setSaved(false);
     try {
       const url = await uploadImage(file);
-      await setImage(contentKey, url);
+      if (contentKey) await setImage(contentKey, url);
+      else onUploaded?.(url);
       setSaved(true);
       toast({ title: "Image saved", description: "Your image has been uploaded." });
       setTimeout(() => setSaved(false), 3000);
@@ -98,7 +110,7 @@ export function ImageDropzone({ contentKey, currentUrl, alt = "Preview" }: Image
             aria-label="Remove image"
             title="Remove image"
             className="absolute top-1.5 right-1.5 z-10 grid place-items-center size-7 rounded-full bg-white/90 text-destructive shadow-sm ring-1 ring-destructive/20 hover:bg-white hover:ring-destructive/40 transition-colors"
-            data-testid={`button-remove-image-${contentKey}`}
+            data-testid={`button-remove-image-${id}`}
           >
             <Trash2 className="size-4" />
           </button>
@@ -156,7 +168,7 @@ export function ImageDropzone({ contentKey, currentUrl, alt = "Preview" }: Image
           capture="environment"
           className="sr-only"
           onChange={onInputChange}
-          data-testid={`input-image-${contentKey}`}
+          data-testid={`input-image-${id}`}
         />
       </div>
     </div>
