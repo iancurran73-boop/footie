@@ -11,7 +11,7 @@ import { SiteShell } from "@/components/site-shell";
 import { Badge } from "@/components/ui/badge";
 import { applySeo, breadcrumb } from "@/lib/seo";
 import { gbp } from "@/lib/format";
-import { Ticket, Gavel, Trophy } from "lucide-react";
+import { Ticket, Gavel } from "lucide-react";
 import config from "@/lib/tenant";
 import type { Competition } from "@shared/schema";
 
@@ -81,7 +81,7 @@ function CompetitionCard({ c }: { c: Competition }) {
           {c.imageUrl ? (
             <img src={c.imageUrl} alt={c.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
           ) : (
-            <Trophy className="size-16 text-white/40" strokeWidth={1.2} />
+            <Ticket className="size-16 text-white/40" strokeWidth={1.2} />
           )}
           <Badge className="absolute top-3 left-3 text-[10px] uppercase" variant={closed ? "secondary" : "default"}>
             {c.status === "live" ? "Live" : c.status === "drawn" ? "Winner drawn" : "Closed"}

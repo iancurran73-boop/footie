@@ -105,7 +105,7 @@ export default function CompetitionDetail() {
             <img src={comp.imageUrl} alt={comp.title} className="w-full aspect-[16/9] object-cover rounded-2xl shadow-sm" />
           ) : (
             <div className="w-full aspect-[16/9] rounded-2xl bg-gradient-to-br from-primary/30 via-accent/15 to-primary/40 flex items-center justify-center">
-              <Trophy className="size-16 text-white/40" strokeWidth={1.2} />
+              <Ticket className="size-16 text-white/40" strokeWidth={1.2} />
             </div>
           )}
 
