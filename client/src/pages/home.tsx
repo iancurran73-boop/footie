@@ -170,16 +170,21 @@ export default function Home() {
       {activeFundraiser && (
         <section className="py-14 sm:py-20 bg-[hsl(35_40%_94%)]">
           <div className="max-w-3xl mx-auto px-4 sm:px-6">
-            <div className="bg-card border border-card-border rounded-2xl p-6 sm:p-8 shadow-sm">
-              <p className="text-xs uppercase tracking-[0.28em] text-primary font-bold text-center">Our goal, a brighter future</p>
-              <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-center mt-2">{activeFundraiser.name}</h2>
-              <div className="mt-4">
-                <FundraiserGauge raised={activeFundraiser.raisedAmount} target={activeFundraiser.targetAmount} />
-              </div>
-              <div className="text-center mt-2">
-                <Link href="/fundraising">
-                  <Button variant="outline" className="rounded-full">See all fundraising</Button>
-                </Link>
+            <div className="bg-card border border-card-border rounded-2xl overflow-hidden shadow-sm">
+              {activeFundraiser.photoUrl && (
+                <img src={activeFundraiser.photoUrl} alt={activeFundraiser.name} className="w-full aspect-[21/9] object-cover" loading="lazy" />
+              )}
+              <div className="p-6 sm:p-8">
+                <p className="text-xs uppercase tracking-[0.28em] text-primary font-bold text-center">Our goal, a brighter future</p>
+                <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-center mt-2">{activeFundraiser.name}</h2>
+                <div className="mt-4">
+                  <FundraiserGauge raised={activeFundraiser.raisedAmount} target={activeFundraiser.targetAmount} />
+                </div>
+                <div className="text-center mt-2">
+                  <Link href="/fundraising">
+                    <Button variant="outline" className="rounded-full">See all fundraising</Button>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
