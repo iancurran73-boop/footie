@@ -235,6 +235,59 @@ export const insertBidSchema = createInsertSchema(bids).omit({ id: true, created
 export type InsertBid = z.infer<typeof insertBidSchema>;
 export type Bid = typeof bids.$inferSelect;
 
+// Football cards — a "40 team card" style fundraiser: a fixed grid of teams,
+// each claimed by one supporter for a flat stake. Once every team is taken,
+// one is drawn at random (same provably-fair draw as the raffle) and whoever
+// claimed it wins the prize pot. The team list is fixed at publish time —
+// slot rows are created then, one per team — so the grid never changes shape
+// mid-sale.
+export const footballCards = sqliteTable("football_cards", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  imageUrl: text("image_url").notNull().default(""),
+  inAidOf: text("in_aid_of").notNull().default(""), // "in aid of..." beneficiary line
+  stake: real("stake").notNull().default(0), // price per team square
+  prizeAmount: real("prize_amount").notNull().default(0),
+  status: text("status").notNull().default("draft"), // "draft" | "live" | "drawn" | "cancelled"
+  drawnTeam: text("drawn_team").notNull().default(""),
+  drawnAt: integer("drawn_at"),
+  // Same audit-seed approach as the raffle draw — see raffleDraw.ts.
+  drawSeed: text("draw_seed").notNull().default(""),
+  winnerSlotId: integer("winner_slot_id"),
+  winnerPaid: integer("winner_paid", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at").notNull(),
+});
+export const insertFootballCardSchema = createInsertSchema(footballCards).omit({
+  id: true,
+  status: true,
+  drawnTeam: true,
+  drawnAt: true,
+  drawSeed: true,
+  winnerSlotId: true,
+  winnerPaid: true,
+  createdAt: true,
+});
+export type InsertFootballCard = z.infer<typeof insertFootballCardSchema>;
+export type FootballCard = typeof footballCards.$inferSelect;
+
+// One row per team square on a card. All rows for a card are created
+// together when it's published (from its fixed team list); claiming a slot
+// just fills in the buyer fields on an existing row rather than creating one.
+export const footballCardSlots = sqliteTable("football_card_slots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  cardId: integer("card_id").notNull(),
+  team: text("team").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  buyerName: text("buyer_name").notNull().default(""),
+  buyerEmail: text("buyer_email").notNull().default(""),
+  buyerPhone: text("buyer_phone").notNull().default(""),
+  claimedAt: integer("claimed_at"),
+});
+export const insertFootballCardSlotSchema = createInsertSchema(footballCardSlots).omit({ id: true });
+export type InsertFootballCardSlot = z.infer<typeof insertFootballCardSlotSchema>;
+export type FootballCardSlot = typeof footballCardSlots.$inferSelect;
+
 // League tables — one row per team's standing within a league/division.
 // Grouped by `league` (e.g. "U12 Division 1"); uploaded/updated in bulk via
 // a CSV import rather than edited row-by-row.

@@ -13,6 +13,8 @@ import Fixtures from "@/pages/fixtures";
 import FixtureDetail from "@/pages/fixture-detail";
 import Competitions from "@/pages/competitions";
 import CompetitionDetail from "@/pages/competition-detail";
+import FootballCards from "@/pages/football-cards";
+import FootballCardDetail from "@/pages/football-card-detail";
 import Sponsors from "@/pages/sponsors";
 import Fundraising from "@/pages/fundraising";
 import Tournaments from "@/pages/tournaments";
@@ -49,6 +51,8 @@ function AppRouter() {
       <Route path="/competitions/:id/return" component={CompetitionDetail} />
       <Route path="/competitions/:id" component={CompetitionDetail} />
       <Route path="/competitions" component={Competitions} />
+      <Route path="/football-cards/:id" component={FootballCardDetail} />
+      <Route path="/football-cards" component={FootballCards} />
       <Route path="/p/:slug" component={DynamicPage} />
       <Route component={NotFound} />
     </Switch>

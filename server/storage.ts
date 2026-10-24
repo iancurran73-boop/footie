@@ -24,6 +24,8 @@ import {
   policyLinks,
   waitingListEntries,
   complaints,
+  footballCards,
+  footballCardSlots,
 } from "@shared/schema";
 import type {
   Settings, InsertSettings,
@@ -51,10 +53,12 @@ import type {
   PolicyLink, InsertPolicyLink,
   WaitingListEntry, InsertWaitingListEntry,
   Complaint, InsertComplaint,
+  FootballCard, InsertFootballCard,
+  FootballCardSlot, InsertFootballCardSlot,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc, isNull } from "drizzle-orm";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -384,6 +388,32 @@ sqlite.exec(`
     admin_notes TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS football_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    image_url TEXT NOT NULL DEFAULT '',
+    in_aid_of TEXT NOT NULL DEFAULT '',
+    stake REAL NOT NULL DEFAULT 0,
+    prize_amount REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'draft',
+    drawn_team TEXT NOT NULL DEFAULT '',
+    drawn_at INTEGER,
+    draw_seed TEXT NOT NULL DEFAULT '',
+    winner_slot_id INTEGER,
+    winner_paid INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS football_card_slots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id INTEGER NOT NULL,
+    team TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    buyer_name TEXT NOT NULL DEFAULT '',
+    buyer_email TEXT NOT NULL DEFAULT '',
+    buyer_phone TEXT NOT NULL DEFAULT '',
+    claimed_at INTEGER
+  );
 `);
 
 // --- seed defaults if empty ---
@@ -408,15 +438,16 @@ const seedIfEmpty = () => {
       { slug: "stats", navLabel: "Stats", path: "/stats", kind: "core", layout: null, sortOrder: 4, visible: true },
       { slug: "fundraising", navLabel: "Fundraising", path: "/fundraising", kind: "core", layout: null, sortOrder: 5, visible: true },
       { slug: "competitions", navLabel: "Raffles & Auctions", path: "/competitions", kind: "core", layout: null, sortOrder: 6, visible: true },
-      { slug: "sponsors", navLabel: "Sponsors", path: "/sponsors", kind: "core", layout: null, sortOrder: 7, visible: true },
-      { slug: "gallery", navLabel: "Gallery", path: "/gallery", kind: "core", layout: null, sortOrder: 8, visible: true },
-      { slug: "about", navLabel: "About", path: "/about", kind: "core", layout: null, sortOrder: 9, visible: true },
-      { slug: "contact", navLabel: "Contact", path: "/contact", kind: "core", layout: null, sortOrder: 10, visible: true },
-      { slug: "tournaments", navLabel: "Tournaments", path: "/tournaments", kind: "core", layout: null, sortOrder: 11, visible: true },
-      { slug: "committee", navLabel: "Committee", path: "/committee", kind: "core", layout: null, sortOrder: 12, visible: true },
-      { slug: "safeguarding", navLabel: "Safeguarding", path: "/safeguarding", kind: "core", layout: null, sortOrder: 13, visible: true },
-      { slug: "join", navLabel: "Join the Wolfpack", path: "/join", kind: "core", layout: null, sortOrder: 14, visible: true },
-      { slug: "complaints", navLabel: "Complaints", path: "/complaints", kind: "core", layout: null, sortOrder: 15, visible: false },
+      { slug: "football-cards", navLabel: "Football Cards", path: "/football-cards", kind: "core", layout: null, sortOrder: 7, visible: true },
+      { slug: "sponsors", navLabel: "Sponsors", path: "/sponsors", kind: "core", layout: null, sortOrder: 8, visible: true },
+      { slug: "gallery", navLabel: "Gallery", path: "/gallery", kind: "core", layout: null, sortOrder: 9, visible: true },
+      { slug: "about", navLabel: "About", path: "/about", kind: "core", layout: null, sortOrder: 10, visible: true },
+      { slug: "contact", navLabel: "Contact", path: "/contact", kind: "core", layout: null, sortOrder: 11, visible: true },
+      { slug: "tournaments", navLabel: "Tournaments", path: "/tournaments", kind: "core", layout: null, sortOrder: 12, visible: true },
+      { slug: "committee", navLabel: "Committee", path: "/committee", kind: "core", layout: null, sortOrder: 13, visible: true },
+      { slug: "safeguarding", navLabel: "Safeguarding", path: "/safeguarding", kind: "core", layout: null, sortOrder: 14, visible: true },
+      { slug: "join", navLabel: "Join the Wolfpack", path: "/join", kind: "core", layout: null, sortOrder: 15, visible: true },
+      { slug: "complaints", navLabel: "Complaints", path: "/complaints", kind: "core", layout: null, sortOrder: 16, visible: false },
     ];
     for (const p of coreSeed) db.insert(pages).values({ ...p, createdAt: now }).run();
   }
@@ -587,6 +618,17 @@ export interface IStorage {
   getHighestBid(competitionId: number): Promise<Bid | undefined>;
   createBid(data: InsertBid): Promise<Bid>;
   getBid(id: number): Promise<Bid | undefined>;
+
+  // football cards
+  listFootballCards(): Promise<FootballCard[]>;
+  getFootballCard(id: number): Promise<FootballCard | undefined>;
+  createFootballCard(data: InsertFootballCard): Promise<FootballCard>;
+  updateFootballCard(id: number, data: Partial<FootballCard>): Promise<FootballCard | undefined>;
+  deleteFootballCard(id: number): Promise<boolean>;
+  listFootballCardSlots(cardId: number): Promise<FootballCardSlot[]>;
+  getFootballCardSlot(id: number): Promise<FootballCardSlot | undefined>;
+  createFootballCardSlots(rows: Omit<FootballCardSlot, "id">[]): Promise<FootballCardSlot[]>;
+  claimFootballCardSlot(id: number, data: { buyerName: string; buyerEmail: string; buyerPhone: string }): Promise<FootballCardSlot | undefined>;
 
   // social post history
   listSocialPosts(limit?: number): Promise<SocialPost[]>;
@@ -1026,6 +1068,42 @@ export class DatabaseStorage implements IStorage {
   }
   async getBid(id: number) {
     return db.select().from(bids).where(eq(bids.id, id)).get();
+  }
+
+  async listFootballCards() {
+    return db.select().from(footballCards).orderBy(desc(footballCards.createdAt)).all();
+  }
+  async getFootballCard(id: number) {
+    return db.select().from(footballCards).where(eq(footballCards.id, id)).get();
+  }
+  async createFootballCard(data: InsertFootballCard) {
+    return db.insert(footballCards).values({ ...data, createdAt: Date.now() }).returning().get();
+  }
+  async updateFootballCard(id: number, data: Partial<FootballCard>) {
+    db.update(footballCards).set(data).where(eq(footballCards.id, id)).run();
+    return db.select().from(footballCards).where(eq(footballCards.id, id)).get();
+  }
+  async deleteFootballCard(id: number) {
+    db.delete(footballCardSlots).where(eq(footballCardSlots.cardId, id)).run();
+    const r = db.delete(footballCards).where(eq(footballCards.id, id)).run();
+    return r.changes > 0;
+  }
+  async listFootballCardSlots(cardId: number) {
+    return db.select().from(footballCardSlots).where(eq(footballCardSlots.cardId, cardId)).orderBy(asc(footballCardSlots.sortOrder)).all();
+  }
+  async getFootballCardSlot(id: number) {
+    return db.select().from(footballCardSlots).where(eq(footballCardSlots.id, id)).get();
+  }
+  async createFootballCardSlots(rows: Omit<FootballCardSlot, "id">[]) {
+    return rows.map((r) => db.insert(footballCardSlots).values(r).returning().get());
+  }
+  async claimFootballCardSlot(id: number, data: { buyerName: string; buyerEmail: string; buyerPhone: string }) {
+    // Guarded on claimed_at IS NULL so two simultaneous claims on the same
+    // team can't both succeed — only the first write actually changes a row.
+    const r = db.update(footballCardSlots).set({ ...data, claimedAt: Date.now() })
+      .where(and(eq(footballCardSlots.id, id), isNull(footballCardSlots.claimedAt))).run();
+    if (r.changes === 0) return undefined;
+    return db.select().from(footballCardSlots).where(eq(footballCardSlots.id, id)).get();
   }
 
   async listSocialPosts(limit = 50) {

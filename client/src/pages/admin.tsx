@@ -22,11 +22,12 @@ import {
   ChevronUp, ChevronDown, GripVertical, Image as ImageIcon, Star, MessageSquare, CreditCard,
   Building2, Palette, ScrollText, MapPin, Mail, Layers, Eye, EyeOff, Users, Search,
   Trophy, Gavel, Ticket, Flag, Upload, Table2, Share2, UserCircle, Heart, HeartHandshake, ShieldCheck, BadgeCheck,
-  Inbox, Shirt as ShirtIcon, MapPinned, Link as LinkIcon,
+  Inbox, Shirt as ShirtIcon, MapPinned, Link as LinkIcon, Shield,
 } from "lucide-react";
 import type {
   Settings, Review, Team, Player, Fixture, Competition, Entry, Bid, LeagueTableRow, SocialPost, Sponsor, Fundraiser, PlayerAvailability,
   TrainingSession, TrainingAvailability, Tournament, TeamKit, CommitteeMember, PolicyLink, WaitingListEntry, Complaint,
+  FootballCard, FootballCardSlot,
 } from "@shared/schema";
 
 const PLAYER_POSITIONS = ["GK", "RB", "CB", "LB", "RWB", "LWB", "CDM", "CM", "CAM", "RM", "LM", "RW", "LW", "CF", "ST"] as const;
@@ -39,7 +40,7 @@ import { ImageDropzone } from "@/components/content/ImageDropzone";
 import { InlineText } from "@/components/content/InlineText";
 import config from "@/lib/tenant";
 
-type Tab = "today" | "fixtures" | "players" | "competitions" | "sponsors" | "fundraising" | "club" | "inbox" | "settings" | "content" | "pages" | "reviews" | "payments" | "business" | "branding" | "emails" | "social";
+type Tab = "today" | "fixtures" | "players" | "competitions" | "footballCards" | "sponsors" | "fundraising" | "club" | "inbox" | "settings" | "content" | "pages" | "reviews" | "payments" | "business" | "branding" | "emails" | "social";
 
 const { brand, business } = config;
 
@@ -96,6 +97,7 @@ function AdminInner() {
                   <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="fixtures" data-testid="tab-fixtures"><Flag className="size-4 mr-1.5" /> Fixtures</TabsTrigger>
                   <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="players" data-testid="tab-players"><UserCircle className="size-4 mr-1.5" /> Players</TabsTrigger>
                   <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="competitions" data-testid="tab-competitions"><Trophy className="size-4 mr-1.5" /> Competitions</TabsTrigger>
+                  <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="footballCards" data-testid="tab-footballCards"><Shield className="size-4 mr-1.5" /> Football Cards</TabsTrigger>
                   <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="club" data-testid="tab-club"><ShieldCheck className="size-4 mr-1.5" /> Club</TabsTrigger>
                   <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="inbox" data-testid="tab-inbox"><Inbox className="size-4 mr-1.5" /> Inbox</TabsTrigger>
                 </TabsList>
@@ -125,6 +127,7 @@ function AdminInner() {
             <TabsContent value="fixtures"><FixturesTab /></TabsContent>
             <TabsContent value="players"><PlayersTab /></TabsContent>
             <TabsContent value="competitions"><CompetitionsTab /></TabsContent>
+            <TabsContent value="footballCards"><FootballCardsTab /></TabsContent>
             <TabsContent value="content"><ContentTab /></TabsContent>
             <TabsContent value="pages"><PagesTab /></TabsContent>
             <TabsContent value="reviews"><ReviewsTab /></TabsContent>
@@ -149,6 +152,7 @@ function AdminInner() {
               ["fixtures", Flag, "Fixtures"],
               ["players", UserCircle, "Players"],
               ["competitions", Trophy, "Draws"],
+              ["footballCards", Shield, "Cards"],
               ["content", FileText, "Content"],
               ["pages", Layers, "Pages"],
               ["reviews", Star, "Reviews"],
@@ -4310,6 +4314,289 @@ function AddEntryDialog({ open, onClose, competition }: { open: boolean; onClose
         <DialogFooter>
           <Button onClick={() => create.mutate()} disabled={create.isPending || !form.buyerName.trim()} data-testid="button-save-entry">
             {create.isPending && <Loader2 className="size-4 mr-1 animate-spin" />} Add
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============ FOOTBALL CARDS ============
+
+// A sensible default 40-team grid — admin edits the list before creating,
+// one team per line, same idea as the club's existing paper cards.
+const DEFAULT_FOOTBALL_CARD_TEAMS = [
+  "Arsenal", "Man City", "Man Utd", "Liverpool", "Chelsea", "Tottenham",
+  "Newcastle", "Aston Villa", "Brighton", "West Ham", "Everton", "Wolves",
+  "Fulham", "Crystal Palace", "Brentford", "Bournemouth", "Nott'm Forest", "Leicester",
+  "Southampton", "Ipswich", "Leeds", "Sunderland", "Burnley", "Sheff Utd",
+  "Norwich", "Middlesbrough", "West Brom", "Stoke", "Bristol City", "Cardiff",
+  "Swansea", "QPR", "Preston", "Hull", "Blackburn", "Watford",
+  "Rangers", "Celtic", "Hearts", "Derby",
+].join("\n");
+
+function FootballCardsTab() {
+  const { data: cards = [] } = useQuery<FootballCard[]>({ queryKey: ["/api/admin/football-cards"] });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [detail, setDetail] = useState<FootballCard | null>(null);
+
+  return (
+    <div className="space-y-4 mt-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Football cards</h1>
+          <p className="text-sm text-muted-foreground">A fixed grid of teams — claim-a-team, then draw a winner once every team's taken.</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} data-testid="button-add-football-card">
+          <Plus className="size-4 mr-1" /> New
+        </Button>
+      </div>
+
+      {cards.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted-foreground border-dashed">Nothing set up yet.</Card>
+      ) : (
+        <div className="space-y-2">
+          {cards.map((c) => (
+            <Card key={c.id} className="p-4 bg-card flex items-center gap-3 hover-elevate cursor-pointer" onClick={() => setDetail(c)} data-testid={`row-football-card-${c.id}`}>
+              <div className="text-muted-foreground"><Shield className="size-5" /></div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-bold text-foreground">{c.title}</span>
+                  <Badge variant={statusBadgeVariant(c.status)} className="text-[10px] uppercase">{c.status}</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {gbp(c.stake)}/team{c.prizeAmount > 0 ? ` · ${gbp(c.prizeAmount)} prize` : ""}
+                  {c.drawnTeam ? ` · won by ${c.drawnTeam}` : ""}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <FootballCardDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+      {detail && <FootballCardDetailDialog card={detail} onClose={() => setDetail(null)} />}
+    </div>
+  );
+}
+
+function FootballCardDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    title: "", description: "", imageUrl: "", inAidOf: "",
+    stake: "2", prizeAmount: "", teams: DEFAULT_FOOTBALL_CARD_TEAMS,
+  });
+
+  const create = useMutation({
+    mutationFn: async () => {
+      const teams = form.teams.split("\n").map((s) => s.trim()).filter(Boolean);
+      const body = {
+        title: form.title, description: form.description, imageUrl: form.imageUrl, inAidOf: form.inAidOf,
+        stake: Number(form.stake) || 0, prizeAmount: Number(form.prizeAmount) || 0, teams,
+      };
+      return (await apiRequest("POST", "/api/admin/football-cards", body)).json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/football-cards"] });
+      toast({ title: "Created as a draft", description: "Publish it from the detail view when you're ready." });
+      onClose();
+    },
+    onError: (e: any) => toast({ title: "Couldn't create", description: String(e?.message || e), variant: "destructive" }),
+  });
+
+  const teamCount = form.teams.split("\n").map((s) => s.trim()).filter(Boolean).length;
+  const canSave = !!form.title.trim() && teamCount >= 2;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>New football card</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Title</Label>
+            <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="40 Team Football Card" data-testid="input-card-title" />
+          </div>
+          <div>
+            <Label>In aid of <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <Input value={form.inAidOf} onChange={(e) => setForm({ ...form, inAidOf: e.target.value })} placeholder="South Shields Wolves Wolfpack" data-testid="input-card-inaidof" />
+          </div>
+          <div>
+            <Label>Description <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="input-card-description" />
+          </div>
+          <div>
+            <Label className="mb-1 block">Photo <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <ImageDropzone testId="football-card-image" currentUrl={form.imageUrl} alt="Card photo" onUploaded={(url) => setForm({ ...form, imageUrl: url })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Stake per team (£)</Label>
+              <Input type="number" min={0} step="0.01" value={form.stake} onChange={(e) => setForm({ ...form, stake: e.target.value })} data-testid="input-card-stake" />
+            </div>
+            <div>
+              <Label>Prize (£) <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Input type="number" min={0} step="0.01" value={form.prizeAmount} onChange={(e) => setForm({ ...form, prizeAmount: e.target.value })} data-testid="input-card-prize" />
+            </div>
+          </div>
+          <div>
+            <Label>Teams <span className="text-muted-foreground font-normal text-xs">(one per line — {teamCount} team{teamCount === 1 ? "" : "s"})</span></Label>
+            <Textarea rows={10} className="font-mono text-xs" value={form.teams} onChange={(e) => setForm({ ...form, teams: e.target.value })} data-testid="input-card-teams" />
+          </div>
+          <p className="text-xs text-muted-foreground">Created as a draft — the grid locks in at this point, so check the team list before creating. Nobody can claim a team until you publish it from the detail view.</p>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => create.mutate()} disabled={!canSave || create.isPending} data-testid="button-save-football-card">
+            {create.isPending && <Loader2 className="size-4 mr-1 animate-spin" />} Create draft
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FootballCardDetailDialog({ card, onClose }: { card: FootballCard; onClose: () => void }) {
+  const { toast } = useToast();
+  const [claimSlot, setClaimSlot] = useState<FootballCardSlot | null>(null);
+
+  const { data: detail } = useQuery<FootballCard & { slots: FootballCardSlot[] }>({
+    queryKey: ["/api/admin/football-cards", card.id],
+    queryFn: async () => (await apiRequest("GET", `/api/admin/football-cards/${card.id}`)).json(),
+    initialData: { ...card, slots: [] },
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/football-cards"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/football-cards", card.id] });
+  };
+
+  const publish = useMutation({
+    mutationFn: async () => (await apiRequest("POST", `/api/admin/football-cards/${card.id}/publish`, {})).json(),
+    onSuccess: () => { invalidate(); toast({ title: "Published — live on the site now" }); },
+  });
+  const draw = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/football-cards/${card.id}/draw`, {});
+      if (!res.ok) throw new Error((await res.json())?.error || "Couldn't draw");
+      return res.json();
+    },
+    onSuccess: (data: FootballCard) => { invalidate(); toast({ title: `${data.drawnTeam} wins!` }); },
+    onError: (e: any) => toast({ title: "Couldn't draw", description: String(e?.message || e), variant: "destructive" }),
+  });
+  const markPaid = useMutation({
+    mutationFn: async () => (await apiRequest("POST", `/api/admin/football-cards/${card.id}/winner-paid`, {})).json(),
+    onSuccess: () => { invalidate(); toast({ title: "Marked as paid" }); },
+  });
+  const remove = useMutation({
+    mutationFn: async () => (await apiRequest("DELETE", `/api/admin/football-cards/${card.id}`)).json(),
+    onSuccess: () => { invalidate(); toast({ title: "Deleted" }); onClose(); },
+    onError: (e: any) => toast({ title: "Couldn't delete", description: String(e?.message || e), variant: "destructive" }),
+  });
+
+  if (!detail) return null;
+  const slots = detail.slots ?? [];
+  const taken = slots.filter((s) => s.claimedAt != null).length;
+  const allTaken = slots.length > 0 && taken === slots.length;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {detail.title}
+            <Badge variant={statusBadgeVariant(detail.status)} className="text-[10px] uppercase">{detail.status}</Badge>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div><div className="font-display font-bold text-lg">{gbp(detail.stake)}</div><div className="text-[10px] text-muted-foreground">per team</div></div>
+            <div><div className="font-display font-bold text-lg">{taken}/{slots.length}</div><div className="text-[10px] text-muted-foreground">taken</div></div>
+            <div><div className="font-display font-bold text-lg">{detail.drawnTeam || "—"}</div><div className="text-[10px] text-muted-foreground">winning team</div></div>
+          </div>
+
+          {detail.status === "draft" && (
+            <Button className="w-full" onClick={() => publish.mutate()} disabled={publish.isPending} data-testid="button-publish-football-card">
+              {publish.isPending && <Loader2 className="size-4 mr-1 animate-spin" />} Publish — go live
+            </Button>
+          )}
+          {detail.status === "live" && (
+            <Button className="w-full" onClick={() => draw.mutate()} disabled={draw.isPending || !allTaken} data-testid="button-draw-football-card">
+              {draw.isPending && <Loader2 className="size-4 mr-1 animate-spin" />} {allTaken ? "Run the draw" : `Waiting on ${slots.length - taken} more team(s)`}
+            </Button>
+          )}
+          {detail.status === "drawn" && !detail.winnerPaid && (
+            <Button className="w-full" variant="outline" onClick={() => markPaid.mutate()} disabled={markPaid.isPending} data-testid="button-mark-paid-football-card">
+              {markPaid.isPending && <Loader2 className="size-4 mr-1 animate-spin" />} Mark winner paid
+            </Button>
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            {slots.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => !s.claimedAt && detail.status === "live" && setClaimSlot(s)}
+                data-testid={`admin-slot-${s.id}`}
+                className={`rounded-lg border p-2 text-xs ${
+                  s.id === detail.winnerSlotId
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : s.claimedAt
+                    ? "bg-muted/60 border-card-border"
+                    : "bg-card border-card-border hover-elevate cursor-pointer"
+                }`}
+              >
+                <div className="font-display font-bold truncate">{s.team}</div>
+                <div className="truncate opacity-80">{s.buyerName || "Open"}</div>
+              </div>
+            ))}
+          </div>
+
+          {detail.status === "draft" && (
+            <Button variant="destructive" size="sm" onClick={() => remove.mutate()} disabled={remove.isPending} data-testid="button-delete-football-card">
+              <Trash2 className="size-3.5 mr-1" /> Delete draft
+            </Button>
+          )}
+        </div>
+      </DialogContent>
+
+      {claimSlot && <AdminClaimSlotDialog cardId={card.id} slot={claimSlot} onClose={() => setClaimSlot(null)} onClaimed={invalidate} />}
+    </Dialog>
+  );
+}
+
+function AdminClaimSlotDialog({ cardId, slot, onClose, onClaimed }: { cardId: number; slot: FootballCardSlot; onClose: () => void; onClaimed: () => void }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({ buyerName: "", buyerEmail: "", buyerPhone: "" });
+
+  const claim = useMutation({
+    mutationFn: async () => (await apiRequest("POST", `/api/admin/football-cards/${cardId}/slots/${slot.id}/claim`, form)).json(),
+    onSuccess: () => { onClaimed(); toast({ title: `${slot.team} claimed` }); onClose(); },
+    onError: (e: any) => toast({ title: "Couldn't claim", description: String(e?.message || e), variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Claim {slot.team}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">For a cash sale at the clubhouse.</p>
+          <div>
+            <Label>Name</Label>
+            <Input value={form.buyerName} onChange={(e) => setForm({ ...form, buyerName: e.target.value })} data-testid="input-slot-buyer-name" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Email <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Input type="email" value={form.buyerEmail} onChange={(e) => setForm({ ...form, buyerEmail: e.target.value })} data-testid="input-slot-buyer-email" />
+            </div>
+            <div>
+              <Label>Phone <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+              <Input value={form.buyerPhone} onChange={(e) => setForm({ ...form, buyerPhone: e.target.value })} data-testid="input-slot-buyer-phone" />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => claim.mutate()} disabled={claim.isPending || !form.buyerName.trim()} data-testid="button-save-slot-claim">
+            {claim.isPending && <Loader2 className="size-4 mr-1 animate-spin" />} Claim
           </Button>
         </DialogFooter>
       </DialogContent>

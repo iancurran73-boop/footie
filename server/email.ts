@@ -129,6 +129,49 @@ export async function sendAuctionWinnerEmail(opts: {
   } catch (e) { console.error("[email] auction winner send failed", e); }
 }
 
+// Sent once a supporter claims a team on a football card.
+export async function sendFootballCardClaimEmail(opts: {
+  buyerEmail: string;
+  buyerName: string;
+  cardTitle: string;
+  team: string;
+}): Promise<void> {
+  const cfg = getEmailConfig();
+  if (!cfg || !cfg.enabled || !cfg.fromEmail || !opts.buyerEmail) return;
+  const clubName = getBusinessConfig()?.name ?? "the club";
+  try {
+    await sendViaResend({
+      from: fromHeader(cfg, clubName),
+      to: opts.buyerEmail,
+      bcc: cfg.bccOwner && cfg.ownerEmail ? cfg.ownerEmail : undefined,
+      subject: `You've got ${opts.team} — ${opts.cardTitle}`,
+      text: `Thanks ${opts.buyerName}! You've got ${opts.team} on "${opts.cardTitle}". We'll email you the moment every team is taken and the draw is made. Good luck!`,
+    });
+  } catch (e) { console.error("[email] football card claim failed", e); }
+}
+
+// Sent to whoever claimed the drawn team once a football card is resolved.
+export async function sendFootballCardWinnerEmail(opts: {
+  winnerEmail: string;
+  winnerName: string;
+  cardTitle: string;
+  team: string;
+  prizeAmount: number;
+}): Promise<void> {
+  const cfg = getEmailConfig();
+  if (!cfg || !cfg.enabled || !cfg.fromEmail || !opts.winnerEmail) return;
+  const clubName = getBusinessConfig()?.name ?? "the club";
+  try {
+    await sendViaResend({
+      from: fromHeader(cfg, clubName),
+      to: opts.winnerEmail,
+      bcc: cfg.bccOwner && cfg.ownerEmail ? cfg.ownerEmail : undefined,
+      subject: `${opts.team} won! You've won "${opts.cardTitle}"`,
+      text: `Congratulations ${opts.winnerName}! ${opts.team} was drawn as the winning team on "${opts.cardTitle}"${opts.prizeAmount > 0 ? ` — you've won £${opts.prizeAmount.toFixed(2)}` : ""}. A committee member will be in touch. Thanks for supporting ${clubName}!`,
+    });
+  } catch (e) { console.error("[email] football card winner failed", e); }
+}
+
 // Sent to the previous highest bidder the moment someone outbids them.
 export async function sendOutbidEmail(opts: {
   bidderEmail: string;

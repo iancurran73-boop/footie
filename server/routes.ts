@@ -10,8 +10,9 @@ import {
   type EmailConfig,
   type EmailTemplates,
 } from "./storage";
-import { sendTestEmail, sendTicketConfirmEmail, sendOutbidEmail, sendWaitingListConfirmEmail, sendComplaintConfirmEmail } from "./email";
+import { sendTestEmail, sendTicketConfirmEmail, sendOutbidEmail, sendWaitingListConfirmEmail, sendComplaintConfirmEmail, sendFootballCardClaimEmail } from "./email";
 import { resolveCompetition, issueTickets } from "./competitions";
+import { resolveFootballCard, claimSlot } from "./footballCards";
 import { readSocialConfig, postToSocial } from "./social";
 import { computeSeasonStats, isVotingOpen, votingWindow, tallyVotes } from "./stats";
 import {
@@ -31,6 +32,7 @@ import {
   insertPolicyLinkSchema,
   insertWaitingListEntrySchema,
   insertComplaintSchema,
+  insertFootballCardSchema,
 } from "@shared/schema";
 import { PAGE_LAYOUT_IDS } from "@shared/page-layouts";
 import { requireAdminAuth, issueSessionCookie, clearSessionCookie, checkLoginRateLimit, verifyPasscode } from "./adminAuth";
@@ -969,6 +971,128 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/admin/competitions/:id/bids", async (req, res) => {
     res.json(await storage.listBids(Number(req.params.id)));
+  });
+
+  // ========= FOOTBALL CARDS (public) =========
+
+  const publicFootballCard = (c: Awaited<ReturnType<typeof storage.getFootballCard>>) => {
+    if (!c) return c;
+    const { drawSeed, ...rest } = c;
+    return rest;
+  };
+  // Buyer email/phone stay admin-only — the public grid only needs to show
+  // which teams are taken and (as on the club's paper cards) whose name is
+  // against them.
+  const publicSlot = (s: Awaited<ReturnType<typeof storage.getFootballCardSlot>>) => {
+    if (!s) return s;
+    const { buyerEmail, buyerPhone, ...rest } = s;
+    return { ...rest, taken: s.claimedAt != null };
+  };
+
+  app.get("/api/public/football-cards", async (_req, res) => {
+    const all = await storage.listFootballCards();
+    res.json(all.filter((c) => c.status !== "draft" && c.status !== "cancelled").map(publicFootballCard));
+  });
+
+  app.get("/api/public/football-cards/:id", async (req, res) => {
+    const c = await storage.getFootballCard(Number(req.params.id));
+    if (!c || c.status === "draft" || c.status === "cancelled") return res.status(404).json({ error: "Not found" });
+    const slots = await storage.listFootballCardSlots(c.id);
+    res.json({ ...publicFootballCard(c), slots: slots.map(publicSlot) });
+  });
+
+  // Claim a specific team — first come, first served. No payment gateway:
+  // like the paper version, the stake is collected by a committee member.
+  app.post("/api/public/football-cards/:id/slots/:slotId/claim", async (req, res) => {
+    const card = await storage.getFootballCard(Number(req.params.id));
+    if (!card || card.status !== "live") return res.status(404).json({ error: "Not found" });
+    const slot = await storage.getFootballCardSlot(Number(req.params.slotId));
+    if (!slot || slot.cardId !== card.id) return res.status(404).json({ error: "Not found" });
+    if (slot.claimedAt != null) return res.status(409).json({ error: "That team's already taken — pick another." });
+
+    const bodySchema = z.object({
+      buyerName: z.string().min(1),
+      buyerEmail: z.union([z.string().email(), z.literal("")]).optional().default(""),
+      buyerPhone: z.string().optional().default(""),
+    });
+    const parse = bodySchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+
+    const updated = await claimSlot(slot, parse.data);
+    if (!updated) return res.status(409).json({ error: "That team's already taken — pick another." });
+    if (parse.data.buyerEmail) {
+      sendFootballCardClaimEmail({ buyerEmail: parse.data.buyerEmail, buyerName: parse.data.buyerName, cardTitle: card.title, team: slot.team })
+        .catch((e) => console.error("[email]", e));
+    }
+    res.json(publicSlot(updated));
+  });
+
+  // ========= FOOTBALL CARDS (admin) =========
+
+  app.get("/api/admin/football-cards", async (_req, res) => {
+    res.json(await storage.listFootballCards());
+  });
+  app.get("/api/admin/football-cards/:id", async (req, res) => {
+    const c = await storage.getFootballCard(Number(req.params.id));
+    if (!c) return res.status(404).json({ error: "Not found" });
+    const slots = await storage.listFootballCardSlots(c.id);
+    res.json({ ...c, slots });
+  });
+  // The team grid is fixed at creation — one slot per team, all unclaimed.
+  app.post("/api/admin/football-cards", async (req, res) => {
+    const bodySchema = insertFootballCardSchema.extend({
+      teams: z.array(z.string().min(1)).min(2),
+    });
+    const parse = bodySchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const { teams, ...cardData } = parse.data;
+    const card = await storage.createFootballCard(cardData);
+    await storage.createFootballCardSlots(
+      teams.map((team, i) => ({ cardId: card.id, team, sortOrder: i, buyerName: "", buyerEmail: "", buyerPhone: "", claimedAt: null })),
+    );
+    res.json(card);
+  });
+  app.patch("/api/admin/football-cards/:id", async (req, res) => {
+    const parse = insertFootballCardSchema.partial().safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const updated = await storage.updateFootballCard(Number(req.params.id), parse.data);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+  app.post("/api/admin/football-cards/:id/publish", async (req, res) => {
+    const updated = await storage.updateFootballCard(Number(req.params.id), { status: "live" });
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+  app.post("/api/admin/football-cards/:id/draw", async (req, res) => {
+    const resolved = await resolveFootballCard(Number(req.params.id));
+    if (!resolved) return res.status(404).json({ error: "Not found" });
+    if ("error" in resolved) return res.status(409).json(resolved);
+    res.json(resolved);
+  });
+  app.post("/api/admin/football-cards/:id/winner-paid", async (req, res) => {
+    const updated = await storage.updateFootballCard(Number(req.params.id), { winnerPaid: true });
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+  app.delete("/api/admin/football-cards/:id", async (req, res) => {
+    const c = await storage.getFootballCard(Number(req.params.id));
+    if (!c) return res.status(404).json({ error: "Not found" });
+    if (c.status !== "draft") return res.status(400).json({ error: "Only a draft card (not yet published) can be deleted" });
+    res.json({ ok: await storage.deleteFootballCard(c.id) });
+  });
+  // Admin can also claim a team on someone's behalf — a cash sale in person,
+  // same as a raffle's manually-logged entry.
+  app.post("/api/admin/football-cards/:id/slots/:slotId/claim", async (req, res) => {
+    const slot = await storage.getFootballCardSlot(Number(req.params.slotId));
+    if (!slot || slot.cardId !== Number(req.params.id)) return res.status(404).json({ error: "Not found" });
+    if (slot.claimedAt != null) return res.status(409).json({ error: "That team's already taken" });
+    const bodySchema = z.object({ buyerName: z.string().min(1), buyerEmail: z.string().optional().default(""), buyerPhone: z.string().optional().default("") });
+    const parse = bodySchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const updated = await claimSlot(slot, parse.data);
+    if (!updated) return res.status(409).json({ error: "That team's already taken" });
+    res.json(updated);
   });
 
   // ========= PUBLIC CONTENT / GALLERY / REVIEWS / PAGES =========
