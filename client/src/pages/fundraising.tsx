@@ -11,6 +11,7 @@ import { SiteShell } from "@/components/site-shell";
 import { applySeo, breadcrumb } from "@/lib/seo";
 import { gbp } from "@/lib/format";
 import { Heart, ExternalLink } from "lucide-react";
+import { FundraiserGauge } from "@/components/fundraiser-gauge";
 import config from "@/lib/tenant";
 import type { Fundraiser } from "@shared/schema";
 
@@ -70,7 +71,6 @@ export default function Fundraising() {
 }
 
 function FundraiserCard({ f, compact }: { f: Fundraiser; compact?: boolean }) {
-  const pct = f.targetAmount > 0 ? Math.min(100, Math.round((f.raisedAmount / f.targetAmount) * 100)) : 0;
   const updates = f.updatesText.split("\n").map((s) => s.trim()).filter(Boolean);
 
   return (
@@ -79,28 +79,26 @@ function FundraiserCard({ f, compact }: { f: Fundraiser; compact?: boolean }) {
         <img src={f.photoUrl} alt={f.name} className="w-full aspect-[21/9] object-cover" loading="lazy" />
       )}
       <div className="p-5 sm:p-6">
-        <h2 className="font-display font-bold text-xl">{f.name}</h2>
-        {f.description && <p className="text-sm text-muted-foreground mt-1.5">{f.description}</p>}
+        <h2 className="font-display font-bold text-xl text-center sm:text-left">{f.name}</h2>
+        {f.description && <p className="text-sm text-muted-foreground mt-1.5 text-center sm:text-left">{f.description}</p>}
 
-        <div className="mt-5">
-          <div className="flex items-end justify-between mb-1.5">
-            <span className="text-2xl font-display font-extrabold text-primary">{gbp(f.raisedAmount)}</span>
-            <span className="text-sm text-muted-foreground">of {gbp(f.targetAmount)} target ({pct}%)</span>
-          </div>
-          <div className="h-3 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-accent to-primary transition-all" style={{ width: `${pct}%` }} />
-          </div>
+        <div className="mt-2">
+          <FundraiserGauge raised={f.raisedAmount} target={f.targetAmount} />
         </div>
 
         {f.donationLink && (
-          <a href={f.donationLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-primary hover:underline">
-            Donate or find out more <ExternalLink className="size-3.5" />
-          </a>
+          <div className="text-center sm:text-left">
+            <a href={f.donationLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-2 text-sm font-semibold text-primary hover:underline">
+              Donate or find out more <ExternalLink className="size-3.5" />
+            </a>
+          </div>
         )}
 
         {updates.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-card-border space-y-1.5">
-            {updates.map((u, i) => <p key={i} className="text-sm text-foreground/85">{u}</p>)}
+          <div className="mt-4 pt-4 border-t border-card-border space-y-2">
+            {updates.map((u, i) => (
+              <p key={i} className="text-sm font-semibold text-center bg-accent/15 text-accent-foreground rounded-full px-4 py-2">{u}</p>
+            ))}
           </div>
         )}
       </div>

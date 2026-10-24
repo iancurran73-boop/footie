@@ -16,6 +16,7 @@ import { formatDate, gbp } from "@/lib/format";
 import config from "@/lib/tenant";
 import { useContent } from "@/lib/content";
 import { useBrand } from "@/lib/brand";
+import { FundraiserGauge } from "@/components/fundraiser-gauge";
 import type { Review, Fixture, Competition, Fundraiser, Sponsor } from "@shared/schema";
 
 const BASE = import.meta.env.BASE_URL || "./";
@@ -172,21 +173,10 @@ export default function Home() {
             <div className="bg-card border border-card-border rounded-2xl p-6 sm:p-8 shadow-sm">
               <p className="text-xs uppercase tracking-[0.28em] text-primary font-bold text-center">Our goal, a brighter future</p>
               <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-center mt-2">{activeFundraiser.name}</h2>
-              {(() => {
-                const pct = activeFundraiser.targetAmount > 0 ? Math.min(100, Math.round((activeFundraiser.raisedAmount / activeFundraiser.targetAmount) * 100)) : 0;
-                return (
-                  <div className="mt-6">
-                    <div className="flex items-end justify-between mb-1.5">
-                      <span className="text-3xl font-display font-extrabold text-primary">{gbp(activeFundraiser.raisedAmount)}</span>
-                      <span className="text-sm text-muted-foreground">of {gbp(activeFundraiser.targetAmount)} ({pct}%)</span>
-                    </div>
-                    <div className="h-3 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-accent to-primary" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })()}
-              <div className="text-center mt-6">
+              <div className="mt-4">
+                <FundraiserGauge raised={activeFundraiser.raisedAmount} target={activeFundraiser.targetAmount} />
+              </div>
+              <div className="text-center mt-2">
                 <Link href="/fundraising">
                   <Button variant="outline" className="rounded-full">See all fundraising</Button>
                 </Link>
