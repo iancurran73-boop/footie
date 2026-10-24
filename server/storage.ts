@@ -468,6 +468,73 @@ const seedIfEmpty = () => {
       }).run();
     }
   }
+
+  // Example raffle + auction so Competitions isn't empty before the first
+  // real one is set up — edit or delete these from Admin > Competitions.
+  const competitionRows = db.select().from(competitions).all();
+  if (competitionRows.length === 0) {
+    const now = Date.now();
+    const opensAt = now;
+    const closesAt = now + 30 * 24 * 60 * 60 * 1000;
+    db.insert(competitions).values({
+      type: "raffle",
+      title: "Win a Signed Club Shirt",
+      description: "Example raffle — edit the details, or delete it, from Admin > Competitions once you're ready to run a real one.",
+      imageUrl: "",
+      prizeDescription: "A shirt signed by the squad",
+      ticketPrice: 2, maxTickets: 200, ticketsSold: 0,
+      startingBid: 0, bidIncrement: 1,
+      opensAt, closesAt, status: "live",
+      drawnNumber: null, drawnAt: null, drawSeed: "", winnerEntryId: null,
+      winnerBidId: null, winnerPaid: false,
+      createdAt: now,
+    }).run();
+    db.insert(competitions).values({
+      type: "auction",
+      title: "Signed Matchball Auction",
+      description: "Example auction — edit the details, or delete it, from Admin > Competitions once you're ready to run a real one.",
+      imageUrl: "",
+      prizeDescription: "A matchball signed by the squad",
+      ticketPrice: 0, maxTickets: 0, ticketsSold: 0,
+      startingBid: 10, bidIncrement: 5,
+      opensAt, closesAt, status: "live",
+      drawnNumber: null, drawnAt: null, drawSeed: "", winnerEntryId: null,
+      winnerBidId: null, winnerPaid: false,
+      createdAt: now,
+    }).run();
+  }
+
+  // Example football card so the grid isn't empty before the first real
+  // one is set up — edit the team list, or delete it, from Admin > Football Cards.
+  const footballCardRows = db.select().from(footballCards).all();
+  if (footballCardRows.length === 0) {
+    const now = Date.now();
+    const exampleTeams = [
+      "Arsenal", "Man City", "Man Utd", "Liverpool", "Chelsea", "Tottenham",
+      "Newcastle", "Aston Villa", "Brighton", "West Ham", "Everton", "Wolves",
+      "Fulham", "Crystal Palace", "Brentford", "Bournemouth", "Nott'm Forest", "Leicester",
+      "Southampton", "Ipswich", "Leeds", "Sunderland", "Burnley", "Sheff Utd",
+      "Norwich", "Middlesbrough", "West Brom", "Stoke", "Bristol City", "Cardiff",
+      "Swansea", "QPR", "Preston", "Hull", "Blackburn", "Watford",
+      "Rangers", "Celtic", "Hearts", "Derby",
+    ];
+    const card = db.insert(footballCards).values({
+      title: "40 Team Football Card",
+      description: "Example football card — edit the team list, or delete it, from Admin > Football Cards once you're ready to run a real one.",
+      imageUrl: "",
+      inAidOf: "the Wolfpack",
+      stake: 2,
+      prizeAmount: exampleTeams.length * 2 * 0.8, // illustrative — admin can set a real figure
+      status: "live",
+      drawnTeam: "", drawnAt: null, drawSeed: "", winnerSlotId: null, winnerPaid: false,
+      createdAt: now,
+    }).returning().get();
+    exampleTeams.forEach((team, i) => {
+      db.insert(footballCardSlots).values({
+        cardId: card.id, team, sortOrder: i, buyerName: "", buyerEmail: "", buyerPhone: "", claimedAt: null,
+      }).run();
+    });
+  }
 };
 seedIfEmpty();
 
