@@ -22,8 +22,12 @@ import {
   ChevronUp, ChevronDown, GripVertical, Image as ImageIcon, Star, MessageSquare, CreditCard,
   Building2, Palette, ScrollText, MapPin, Mail, Layers, Eye, EyeOff, Users, Search,
   Trophy, Gavel, Ticket, Flag, Upload, Table2, Share2, UserCircle, Heart, HeartHandshake, ShieldCheck, BadgeCheck,
+  Inbox, Shirt as ShirtIcon, MapPinned, Link as LinkIcon,
 } from "lucide-react";
-import type { Settings, Review, Team, Player, Fixture, Competition, Entry, Bid, LeagueTableRow, SocialPost, Sponsor, Fundraiser, PlayerAvailability } from "@shared/schema";
+import type {
+  Settings, Review, Team, Player, Fixture, Competition, Entry, Bid, LeagueTableRow, SocialPost, Sponsor, Fundraiser, PlayerAvailability,
+  TrainingSession, TrainingAvailability, Tournament, TeamKit, CommitteeMember, PolicyLink, WaitingListEntry, Complaint,
+} from "@shared/schema";
 
 const PLAYER_POSITIONS = ["GK", "RB", "CB", "LB", "RWB", "LWB", "CDM", "CM", "CAM", "RM", "LM", "RW", "LW", "CF", "ST"] as const;
 import { AdminGate, AdminLogout } from "@/components/admin-gate";
@@ -35,7 +39,7 @@ import { ImageDropzone } from "@/components/content/ImageDropzone";
 import { InlineText } from "@/components/content/InlineText";
 import config from "@/lib/tenant";
 
-type Tab = "today" | "fixtures" | "players" | "competitions" | "sponsors" | "fundraising" | "settings" | "content" | "pages" | "reviews" | "payments" | "business" | "branding" | "emails" | "social";
+type Tab = "today" | "fixtures" | "players" | "competitions" | "sponsors" | "fundraising" | "club" | "inbox" | "settings" | "content" | "pages" | "reviews" | "payments" | "business" | "branding" | "emails" | "social";
 
 const { brand, business } = config;
 
@@ -92,6 +96,8 @@ function AdminInner() {
                   <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="fixtures" data-testid="tab-fixtures"><Flag className="size-4 mr-1.5" /> Fixtures</TabsTrigger>
                   <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="players" data-testid="tab-players"><UserCircle className="size-4 mr-1.5" /> Players</TabsTrigger>
                   <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="competitions" data-testid="tab-competitions"><Trophy className="size-4 mr-1.5" /> Competitions</TabsTrigger>
+                  <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="club" data-testid="tab-club"><ShieldCheck className="size-4 mr-1.5" /> Club</TabsTrigger>
+                  <TabsTrigger className="flex-none px-3 py-1.5 text-sm" value="inbox" data-testid="tab-inbox"><Inbox className="size-4 mr-1.5" /> Inbox</TabsTrigger>
                 </TabsList>
               </NavGroup>
               <NavGroup label="Content">
@@ -125,6 +131,8 @@ function AdminInner() {
             <TabsContent value="social"><SocialTab /></TabsContent>
             <TabsContent value="sponsors"><SponsorsTab /></TabsContent>
             <TabsContent value="fundraising"><FundraisingTab /></TabsContent>
+            <TabsContent value="club"><ClubTab /></TabsContent>
+            <TabsContent value="inbox"><InboxTab /></TabsContent>
             <TabsContent value="payments"><PaymentsTab /></TabsContent>
             <TabsContent value="business"><BusinessTab /></TabsContent>
             <TabsContent value="branding"><BrandingTab /></TabsContent>
@@ -147,6 +155,8 @@ function AdminInner() {
               ["social", Share2, "Social"],
               ["sponsors", HeartHandshake, "Sponsors"],
               ["fundraising", Heart, "Funds"],
+              ["club", ShieldCheck, "Club"],
+              ["inbox", Inbox, "Inbox"],
               ["payments", CreditCard, "Pay"],
               ["business", Building2, "Business"],
               ["branding", Palette, "Brand"],
@@ -255,6 +265,7 @@ function ContentTab() {
           imageUrl: url,
           caption: null,
           category: null,
+          season: null,
           sortOrder: Date.now() + i,
           active: true,
         });
@@ -427,13 +438,22 @@ function ContentTab() {
                         className="w-full text-sm h-8"
                         data-testid={`input-gallery-caption-${item.id}`}
                       />
-                      <Input
-                        placeholder="Category (optional)"
-                        defaultValue={item.category ?? ""}
-                        onBlur={(e) => updateGalleryItem.mutate({ id: item.id, category: e.target.value || null })}
-                        className="w-full text-sm h-8"
-                        data-testid={`input-gallery-category-${item.id}`}
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Category (optional)"
+                          defaultValue={item.category ?? ""}
+                          onBlur={(e) => updateGalleryItem.mutate({ id: item.id, category: e.target.value || null })}
+                          className="w-full text-sm h-8"
+                          data-testid={`input-gallery-category-${item.id}`}
+                        />
+                        <Input
+                          placeholder="Season (optional)"
+                          defaultValue={item.season ?? ""}
+                          onBlur={(e) => updateGalleryItem.mutate({ id: item.id, season: e.target.value || null })}
+                          className="w-full text-sm h-8"
+                          data-testid={`input-gallery-season-${item.id}`}
+                        />
+                      </div>
                     </div>
                     <div className="flex flex-col gap-1 shrink-0">
                       <Button size="icon" variant="ghost" className="size-7" onClick={() => moveItem(item, "up")} disabled={idx === 0} data-testid={`button-gallery-up-${item.id}`}>
@@ -1604,6 +1624,488 @@ function FundraiserDialog({ open, onClose, fundraiser }: { open: boolean; onClos
   );
 }
 
+// ============ CLUB (Tournaments / Kits / Committee / Safeguarding) ============
+
+function ClubTab() {
+  return (
+    <div className="mt-5">
+      <Tabs defaultValue="tournaments">
+        <TabsList>
+          <TabsTrigger value="tournaments" data-testid="subtab-tournaments"><Trophy className="size-4 mr-1.5" /> Tournaments</TabsTrigger>
+          <TabsTrigger value="kits" data-testid="subtab-kits"><ShirtIcon className="size-4 mr-1.5" /> Kits</TabsTrigger>
+          <TabsTrigger value="committee" data-testid="subtab-committee"><Users className="size-4 mr-1.5" /> Committee</TabsTrigger>
+          <TabsTrigger value="safeguarding" data-testid="subtab-safeguarding"><ShieldCheck className="size-4 mr-1.5" /> Safeguarding</TabsTrigger>
+        </TabsList>
+        <TabsContent value="tournaments"><TournamentsSection /></TabsContent>
+        <TabsContent value="kits"><KitsSection /></TabsContent>
+        <TabsContent value="committee"><CommitteeSection /></TabsContent>
+        <TabsContent value="safeguarding"><SafeguardingSection /></TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function TournamentsSection() {
+  const { data: tournaments = [] } = useQuery<Tournament[]>({ queryKey: ["/api/admin/tournaments"] });
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Tournament | null>(null);
+  const sorted = [...tournaments].sort((a, b) => a.date.localeCompare(b.date));
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">Multi-day events, separate from the weekly league fixture list.</p>
+        <Button onClick={() => { setEditing(null); setOpen(true); }} data-testid="button-add-tournament">
+          <Plus className="size-4 mr-1" /> Add tournament
+        </Button>
+      </div>
+      {sorted.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted-foreground border-dashed">No tournaments yet.</Card>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map((t) => (
+            <Card key={t.id} className="p-4 bg-card flex items-center gap-3 hover-elevate" data-testid={`row-tournament-${t.id}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-bold text-foreground">{t.name}</span>
+                  <Badge variant={t.status === "upcoming" ? "default" : "secondary"} className="text-[9px] uppercase">{t.status}</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">{t.date ? formatDate(t.date) : "No date set"}{t.location ? ` · ${t.location}` : ""}</div>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => { setEditing(t); setOpen(true); }} data-testid={`button-edit-tournament-${t.id}`}>
+                <Pencil className="size-4" />
+              </Button>
+            </Card>
+          ))}
+        </div>
+      )}
+      <TournamentDialog key={editing?.id ?? "new"} open={open} onClose={() => setOpen(false)} tournament={editing} />
+    </div>
+  );
+}
+
+function TournamentDialog({ open, onClose, tournament }: { open: boolean; onClose: () => void; tournament: Tournament | null }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    name: tournament?.name ?? "",
+    ageGroup: tournament?.ageGroup ?? "",
+    date: tournament?.date ?? todayIso(),
+    arrivalTime: tournament?.arrivalTime ?? "",
+    startTime: tournament?.startTime ?? "",
+    finishTime: tournament?.finishTime ?? "",
+    location: tournament?.location ?? "",
+    address: tournament?.address ?? "",
+    pitch: tournament?.pitch ?? "",
+    pitchType: tournament?.pitchType ?? "",
+    format: tournament?.format ?? "",
+    photoUrl: tournament?.photoUrl ?? "",
+    infoUrl: tournament?.infoUrl ?? "",
+    status: (tournament?.status ?? "upcoming") as "upcoming" | "completed" | "archived",
+  });
+
+  const save = useMutation({
+    mutationFn: async () => tournament
+      ? apiRequest("PATCH", `/api/admin/tournaments/${tournament.id}`, form)
+      : apiRequest("POST", "/api/admin/tournaments", form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tournaments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/tournaments"] });
+      toast({ title: tournament ? "Tournament updated" : "Tournament added" });
+      onClose();
+    },
+    onError: (e: Error) => toast({ title: "Couldn't save tournament", description: e.message, variant: "destructive" }),
+  });
+  const remove = useMutation({
+    mutationFn: async () => apiRequest("DELETE", `/api/admin/tournaments/${tournament!.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tournaments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/tournaments"] });
+      toast({ title: "Tournament deleted" });
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{tournament ? "Edit tournament" : "Add tournament"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="input-tournament-name" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Age group</Label><Input value={form.ageGroup} onChange={(e) => setForm({ ...form, ageGroup: e.target.value })} placeholder="U10" data-testid="input-tournament-agegroup" /></div>
+            <div><Label>Format</Label><Input value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })} placeholder="5-a-side" data-testid="input-tournament-format" /></div>
+          </div>
+          <div><Label>Date</Label><Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="input-tournament-date" /></div>
+          <div className="grid grid-cols-3 gap-3">
+            <div><Label>Arrival</Label><Input type="time" value={form.arrivalTime} onChange={(e) => setForm({ ...form, arrivalTime: e.target.value })} data-testid="input-tournament-arrival" /></div>
+            <div><Label>Start</Label><Input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} data-testid="input-tournament-start" /></div>
+            <div><Label>Finish</Label><Input type="time" value={form.finishTime} onChange={(e) => setForm({ ...form, finishTime: e.target.value })} data-testid="input-tournament-finish" /></div>
+          </div>
+          <div><Label>Location</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} data-testid="input-tournament-location" /></div>
+          <div><Label>Address <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} data-testid="input-tournament-address" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Pitch <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label><Input value={form.pitch} onChange={(e) => setForm({ ...form, pitch: e.target.value })} data-testid="input-tournament-pitch" /></div>
+            <div><Label>Pitch type <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label><Input value={form.pitchType} onChange={(e) => setForm({ ...form, pitchType: e.target.value })} data-testid="input-tournament-pitchtype" /></div>
+          </div>
+          <div>
+            <Label className="mb-1 block">Photo/logo <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <ImageDropzone testId="tournament-photo" currentUrl={form.photoUrl} alt="Tournament" onUploaded={(url) => setForm({ ...form, photoUrl: url })} />
+          </div>
+          <div><Label>Info link <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label><Input value={form.infoUrl} onChange={(e) => setForm({ ...form, infoUrl: e.target.value })} placeholder="https://…" data-testid="input-tournament-infourl" /></div>
+          <div>
+            <Label>Status</Label>
+            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as typeof form.status })}>
+              <SelectTrigger data-testid="select-tournament-status"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="archived">Archived (hidden)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {tournament && (
+            <Button variant="outline" onClick={() => remove.mutate()} disabled={remove.isPending} data-testid="button-delete-tournament">
+              <Trash2 className="size-4 mr-1" /> Delete
+            </Button>
+          )}
+          <Button onClick={() => save.mutate()} disabled={save.isPending || !form.name} data-testid="button-save-tournament">
+            {save.isPending && <Loader2 className="size-4 mr-1 animate-spin" />} Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function KitsSection() {
+  const { data: teams = [] } = useQuery<Team[]>({ queryKey: ["/api/admin/teams"] });
+  const [team, setTeam] = useState<string>("");
+  const activeTeam = team || teams[0]?.name || "";
+  const { data: kits = [] } = useQuery<TeamKit[]>({ queryKey: [`/api/admin/kits?team=${encodeURIComponent(activeTeam)}`], enabled: !!activeTeam });
+
+  if (teams.length === 0) {
+    return <p className="text-sm text-muted-foreground mt-4">Add a team first (Fixtures tab) before setting up kits.</p>;
+  }
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Select value={activeTeam} onValueChange={setTeam}>
+        <SelectTrigger className="w-56" data-testid="select-kits-team"><SelectValue /></SelectTrigger>
+        <SelectContent>{teams.map((t) => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent>
+      </Select>
+      <div className="grid sm:grid-cols-3 gap-4">
+        {(["home", "away", "alternative"] as const).map((kitType) => (
+          <KitCard key={kitType} team={activeTeam} kitType={kitType} kit={kits.find((k) => k.kitType === kitType)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KitCard({ team, kitType, kit }: { team: string; kitType: "home" | "away" | "alternative"; kit: TeamKit | undefined }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    shirtColour: kit?.shirtColour ?? "",
+    shorts: kit?.shorts ?? "",
+    socks: kit?.socks ?? "",
+    gkShirt: kit?.gkShirt ?? "",
+    photoUrl: kit?.photoUrl ?? "",
+  });
+
+  const save = useMutation({
+    mutationFn: async () => apiRequest("PUT", `/api/admin/kits/${encodeURIComponent(team)}/${kitType}`, form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/kits?team=${encodeURIComponent(team)}`] });
+      toast({ title: "Kit saved" });
+    },
+    onError: (e: Error) => toast({ title: "Couldn't save kit", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <Card className="p-4 space-y-2">
+      <h3 className="font-display font-bold capitalize">{kitType}</h3>
+      <Input value={form.shirtColour} onChange={(e) => setForm({ ...form, shirtColour: e.target.value })} placeholder="Shirt colour" data-testid={`input-kit-shirt-${kitType}`} />
+      <Input value={form.shorts} onChange={(e) => setForm({ ...form, shorts: e.target.value })} placeholder="Shorts" data-testid={`input-kit-shorts-${kitType}`} />
+      <Input value={form.socks} onChange={(e) => setForm({ ...form, socks: e.target.value })} placeholder="Socks" data-testid={`input-kit-socks-${kitType}`} />
+      <Input value={form.gkShirt} onChange={(e) => setForm({ ...form, gkShirt: e.target.value })} placeholder="GK shirt" data-testid={`input-kit-gk-${kitType}`} />
+      <ImageDropzone testId={`kit-photo-${kitType}`} currentUrl={form.photoUrl} alt={`${kitType} kit`} onUploaded={(url) => setForm({ ...form, photoUrl: url })} />
+      <Button size="sm" className="w-full" onClick={() => save.mutate()} disabled={save.isPending} data-testid={`button-save-kit-${kitType}`}>
+        {save.isPending && <Loader2 className="size-3.5 mr-1 animate-spin" />} Save
+      </Button>
+    </Card>
+  );
+}
+
+function CommitteeSection() {
+  const { data: members = [] } = useQuery<CommitteeMember[]>({ queryKey: ["/api/admin/committee"] });
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<CommitteeMember | null>(null);
+  const sorted = [...members].sort((a, b) => a.sortOrder - b.sortOrder);
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">Club Secretary, Welfare Officer, coaches and other contacts.</p>
+        <Button onClick={() => { setEditing(null); setOpen(true); }} data-testid="button-add-committee">
+          <Plus className="size-4 mr-1" /> Add member
+        </Button>
+      </div>
+      {sorted.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted-foreground border-dashed">No committee members yet.</Card>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map((m) => (
+            <Card key={m.id} className="p-4 bg-card flex items-center gap-3 hover-elevate" data-testid={`row-committee-${m.id}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-display font-bold text-foreground">{m.name}</span>
+                  <Badge variant="outline" className="text-[10px]">{m.role}</Badge>
+                  {m.visibility === "admin_only" && <Badge variant="secondary" className="text-[9px]">Admin only</Badge>}
+                </div>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => { setEditing(m); setOpen(true); }} data-testid={`button-edit-committee-${m.id}`}>
+                <Pencil className="size-4" />
+              </Button>
+            </Card>
+          ))}
+        </div>
+      )}
+      <CommitteeMemberDialog key={editing?.id ?? "new"} open={open} onClose={() => setOpen(false)} member={editing} />
+    </div>
+  );
+}
+
+function CommitteeMemberDialog({ open, onClose, member }: { open: boolean; onClose: () => void; member: CommitteeMember | null }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    name: member?.name ?? "",
+    role: member?.role ?? "",
+    email: member?.email ?? "",
+    phone: member?.phone ?? "",
+    photoUrl: member?.photoUrl ?? "",
+    visibility: (member?.visibility ?? "public") as "public" | "admin_only",
+    sortOrder: member?.sortOrder?.toString() ?? "0",
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const body = { ...form, sortOrder: Number(form.sortOrder) || 0 };
+      return member
+        ? apiRequest("PATCH", `/api/admin/committee/${member.id}`, body)
+        : apiRequest("POST", "/api/admin/committee", body);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/committee"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/committee"] });
+      toast({ title: member ? "Member updated" : "Member added" });
+      onClose();
+    },
+    onError: (e: Error) => toast({ title: "Couldn't save member", description: e.message, variant: "destructive" }),
+  });
+  const remove = useMutation({
+    mutationFn: async () => apiRequest("DELETE", `/api/admin/committee/${member!.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/committee"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/committee"] });
+      toast({ title: "Member deleted" });
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{member ? "Edit member" : "Add committee member"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="input-committee-name" /></div>
+          <div><Label>Role</Label><Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} placeholder="Club Secretary" data-testid="input-committee-role" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Email <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="input-committee-email" /></div>
+            <div><Label>Phone <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-committee-phone" /></div>
+          </div>
+          <div>
+            <Label className="mb-1 block">Photo <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <ImageDropzone testId="committee-photo" currentUrl={form.photoUrl} alt={form.name} onUploaded={(url) => setForm({ ...form, photoUrl: url })} />
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <Label>Public <span className="text-muted-foreground font-normal text-xs">(shown on the public Committee page)</span></Label>
+            <Switch checked={form.visibility === "public"} onCheckedChange={(v) => setForm({ ...form, visibility: v ? "public" : "admin_only" })} data-testid="switch-committee-visibility" />
+          </div>
+          <div><Label>Sort order</Label><Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} data-testid="input-committee-sortorder" /></div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {member && (
+            <Button variant="outline" onClick={() => remove.mutate()} disabled={remove.isPending} data-testid="button-delete-committee">
+              <Trash2 className="size-4 mr-1" /> Delete
+            </Button>
+          )}
+          <Button onClick={() => save.mutate()} disabled={save.isPending || !form.name} data-testid="button-save-committee">
+            {save.isPending && <Loader2 className="size-4 mr-1 animate-spin" />} Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SafeguardingSection() {
+  const { data: links = [] } = useQuery<PolicyLink[]>({ queryKey: ["/api/admin/policy-links"] });
+  const { toast } = useToast();
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+
+  const add = useMutation({
+    mutationFn: async () => apiRequest("POST", "/api/admin/policy-links", { title, url, sortOrder: links.length }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/policy-links"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/policy-links"] });
+      setTitle(""); setUrl("");
+      toast({ title: "Link added" });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/admin/policy-links/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/policy-links"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/policy-links"] });
+    },
+  });
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card className="p-4">
+        <p className="text-sm text-muted-foreground">
+          Link out to the official Northumberland FA / The FA safeguarding, welfare and discipline pages — get the exact current URLs from the club's Welfare Officer rather than guessing them.
+        </p>
+      </Card>
+      <Card className="p-4 space-y-3">
+        <h3 className="text-sm font-semibold">Add a link</h3>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title, e.g. FA Safeguarding Policy" data-testid="input-policylink-title" />
+          <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" data-testid="input-policylink-url" />
+        </div>
+        <Button size="sm" onClick={() => add.mutate()} disabled={add.isPending || !title || !url} data-testid="button-add-policylink">
+          <Plus className="size-4 mr-1" /> Add link
+        </Button>
+      </Card>
+      {links.length > 0 && (
+        <div className="space-y-2">
+          {links.map((l) => (
+            <Card key={l.id} className="p-3 flex items-center justify-between gap-3" data-testid={`row-policylink-${l.id}`}>
+              <div className="min-w-0 flex items-center gap-2">
+                <LinkIcon className="size-3.5 text-muted-foreground shrink-0" />
+                <span className="text-sm font-medium truncate">{l.title}</span>
+                <span className="text-xs text-muted-foreground truncate">{l.url}</span>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => remove.mutate(l.id)} data-testid={`button-delete-policylink-${l.id}`}>
+                <Trash2 className="size-4" />
+              </Button>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ INBOX (Waiting List / Complaints) ============
+
+function InboxTab() {
+  return (
+    <div className="mt-5">
+      <Tabs defaultValue="waiting-list">
+        <TabsList>
+          <TabsTrigger value="waiting-list" data-testid="subtab-waitinglist">Waiting list</TabsTrigger>
+          <TabsTrigger value="complaints" data-testid="subtab-complaints">Complaints</TabsTrigger>
+        </TabsList>
+        <TabsContent value="waiting-list"><WaitingListSection /></TabsContent>
+        <TabsContent value="complaints"><ComplaintsSection /></TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+const WAITING_LIST_STATUSES = ["new", "waiting", "contacted", "trial_offered", "trial_arranged", "place_offered", "joined", "declined", "archived"] as const;
+
+function WaitingListSection() {
+  const { data: entries = [] } = useQuery<WaitingListEntry[]>({ queryKey: ["/api/admin/waiting-list"] });
+  const { toast } = useToast();
+  const setStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => apiRequest("PATCH", `/api/admin/waiting-list/${id}`, { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/waiting-list"] }),
+    onError: (e: Error) => toast({ title: "Couldn't update", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-2 mt-4">
+      {entries.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted-foreground border-dashed">No one's registered interest yet.</Card>
+      ) : entries.map((e) => (
+        <Card key={e.id} className="p-4 bg-card" data-testid={`row-waitinglist-${e.id}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-display font-bold">{e.playerName} <span className="text-sm font-normal text-muted-foreground">({e.ageGroup || "age group n/a"}, {e.position || "position n/a"})</span></p>
+              <p className="text-xs text-muted-foreground mt-0.5">Parent: {e.parentName} · {e.parentEmail}{e.parentPhone ? ` · ${e.parentPhone}` : ""}</p>
+              <p className="text-xs text-muted-foreground">{e.school ? `${e.school}, ` : ""}{e.schoolYear ? `Year ${e.schoolYear}` : ""}{e.saturdayLeague ? ` · ${e.saturdayLeague}` : ""}{e.division ? ` · ${e.division}` : ""}</p>
+            </div>
+            <Select value={e.status} onValueChange={(v) => setStatus.mutate({ id: e.id, status: v })}>
+              <SelectTrigger className="w-44 shrink-0" data-testid={`select-waitinglist-status-${e.id}`}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {WAITING_LIST_STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+const COMPLAINT_STATUSES = ["received", "under_review", "response_required", "responded", "resolved", "closed"] as const;
+
+function ComplaintsSection() {
+  const { data: complaints = [] } = useQuery<Complaint[]>({ queryKey: ["/api/admin/complaints"] });
+  const { toast } = useToast();
+  const setStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => apiRequest("PATCH", `/api/admin/complaints/${id}`, { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/complaints"] }),
+    onError: (e: Error) => toast({ title: "Couldn't update", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-2 mt-4">
+      {complaints.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted-foreground border-dashed">No complaints logged.</Card>
+      ) : complaints.map((c) => {
+        const overdue = Date.now() > c.targetResponseAt && !["resolved", "closed"].includes(c.status);
+        return (
+          <Card key={c.id} className="p-4 bg-card" data-testid={`row-complaint-${c.id}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-display font-bold flex items-center gap-2">
+                  {c.reference}
+                  {overdue && <Badge variant="destructive" className="text-[9px] uppercase">Overdue</Badge>}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">{c.name} · {c.email}{c.phone ? ` · ${c.phone}` : ""}</p>
+                <p className="text-sm mt-1.5">{c.reason}</p>
+                <p className="text-xs text-muted-foreground mt-1">Target response by {formatDate(new Date(c.targetResponseAt).toISOString().slice(0, 10))}</p>
+              </div>
+              <Select value={c.status} onValueChange={(v) => setStatus.mutate({ id: c.id, status: v })}>
+                <SelectTrigger className="w-44 shrink-0" data-testid={`select-complaint-status-${c.id}`}><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {COMPLAINT_STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 function PaymentsTab() {
   const { toast } = useToast();
   const { data: cfg, isLoading } = useQuery<PaymentsConfig>({
@@ -2412,8 +2914,194 @@ function FixturesTab() {
         {reportFixture && <MatchReportDialog fixture={reportFixture} onClose={() => setReportFixture(null)} />}
       </div>
 
+      <TrainingSection />
       <LeagueTablesSection />
     </div>
+  );
+}
+
+function TrainingSection() {
+  const { data: sessions = [] } = useQuery<TrainingSession[]>({ queryKey: ["/api/admin/training"] });
+  const { data: teams = [] } = useQuery<Team[]>({ queryKey: ["/api/admin/teams"] });
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<TrainingSession | null>(null);
+  const [availabilityFor, setAvailabilityFor] = useState<TrainingSession | null>(null);
+
+  const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Training</h1>
+          <p className="text-sm text-muted-foreground">Weekly sessions, one-offs and cancellations.</p>
+        </div>
+        <Button onClick={() => { setEditing(null); setOpen(true); }} data-testid="button-add-training">
+          <Plus className="size-4 mr-1" /> Add session
+        </Button>
+      </div>
+
+      {sorted.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted-foreground border-dashed">No training sessions yet.</Card>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map((s) => (
+            <Card key={s.id} className="p-4 bg-card flex items-center gap-3 hover-elevate" data-testid={`row-training-${s.id}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px]">{s.team}</Badge>
+                  {s.status === "cancelled" && <Badge variant="destructive" className="text-[9px] uppercase">Cancelled</Badge>}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {formatDate(s.date)}{s.startTime ? ` · ${s.startTime}${s.endTime ? `–${s.endTime}` : ""}` : ""}{s.venue ? ` · ${s.venue}` : ""}
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setAvailabilityFor(s)} data-testid={`button-training-availability-${s.id}`}>Availability</Button>
+              <Button size="icon" variant="ghost" onClick={() => { setEditing(s); setOpen(true); }} data-testid={`button-edit-training-${s.id}`}>
+                <Pencil className="size-4" />
+              </Button>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <TrainingDialog key={editing?.id ?? "new"} open={open} onClose={() => setOpen(false)} session={editing} teams={teams} />
+      {availabilityFor && <TrainingAvailabilityDialog session={availabilityFor} onClose={() => setAvailabilityFor(null)} />}
+    </div>
+  );
+}
+
+function TrainingDialog({ open, onClose, session, teams }: { open: boolean; onClose: () => void; session: TrainingSession | null; teams: Team[] }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    team: session?.team ?? teams[0]?.name ?? "",
+    date: session?.date ?? todayIso(),
+    startTime: session?.startTime ?? "18:00",
+    endTime: session?.endTime ?? "19:00",
+    venue: session?.venue ?? "",
+    status: (session?.status ?? "scheduled") as "scheduled" | "cancelled",
+    notes: session?.notes ?? "",
+  });
+
+  const save = useMutation({
+    mutationFn: async () => session
+      ? apiRequest("PATCH", `/api/admin/training/${session.id}`, form)
+      : apiRequest("POST", "/api/admin/training", form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/training"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/training"] });
+      toast({ title: session ? "Session updated" : "Session added" });
+      onClose();
+    },
+    onError: (e: Error) => toast({ title: "Couldn't save session", description: e.message, variant: "destructive" }),
+  });
+  const remove = useMutation({
+    mutationFn: async () => apiRequest("DELETE", `/api/admin/training/${session!.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/training"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/public/training"] });
+      toast({ title: "Session deleted" });
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{session ? "Edit session" : "Add training session"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Team</Label>
+            {teams.length > 0 ? (
+              <Select value={form.team} onValueChange={(v) => setForm({ ...form, team: v })}>
+                <SelectTrigger data-testid="select-training-team"><SelectValue /></SelectTrigger>
+                <SelectContent>{teams.map((t) => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent>
+              </Select>
+            ) : (
+              <Input value={form.team} onChange={(e) => setForm({ ...form, team: e.target.value })} data-testid="input-training-team" />
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1">
+              <Label>Date</Label>
+              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="input-training-date" />
+            </div>
+            <div>
+              <Label>Start</Label>
+              <Input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} data-testid="input-training-start" />
+            </div>
+            <div>
+              <Label>End</Label>
+              <Input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} data-testid="input-training-end" />
+            </div>
+          </div>
+          <div>
+            <Label>Venue <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <Input value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Harton Academy" data-testid="input-training-venue" />
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <Label>Cancelled <span className="text-muted-foreground font-normal text-xs">(stays visible, marked as cancelled)</span></Label>
+            <Switch checked={form.status === "cancelled"} onCheckedChange={(v) => setForm({ ...form, status: v ? "cancelled" : "scheduled" })} data-testid="switch-training-cancelled" />
+          </div>
+          <div>
+            <Label>Notes <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+            <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} data-testid="input-training-notes" />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {session && (
+            <Button variant="outline" onClick={() => remove.mutate()} disabled={remove.isPending} data-testid="button-delete-training">
+              <Trash2 className="size-4 mr-1" /> Delete
+            </Button>
+          )}
+          <Button onClick={() => save.mutate()} disabled={save.isPending || !form.team} data-testid="button-save-training">
+            {save.isPending && <Loader2 className="size-4 mr-1 animate-spin" />} Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TrainingAvailabilityDialog({ session, onClose }: { session: TrainingSession; onClose: () => void }) {
+  const { data: allPlayers = [] } = useQuery<Player[]>({ queryKey: ["/api/admin/players"] });
+  const { data: availability = [] } = useQuery<TrainingAvailability[]>({ queryKey: [`/api/admin/training/${session.id}/availability`] });
+  const squad = allPlayers.filter((p) => p.team === session.team && p.active);
+
+  const setStatus = useMutation({
+    mutationFn: async ({ playerId, status }: { playerId: number; status: string }) =>
+      apiRequest("POST", `/api/admin/training/${session.id}/availability`, { playerId, status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [`/api/admin/training/${session.id}/availability`] }),
+  });
+  const statusFor = (playerId: number) => availability.find((a) => a.playerId === playerId)?.status ?? "awaiting";
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{session.team} — {formatDate(session.date)}</DialogTitle></DialogHeader>
+        {squad.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No players set up for {session.team} yet.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {squad.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-3 py-1">
+                <span className="text-sm">{p.displayName}</span>
+                <Select value={statusFor(p.id)} onValueChange={(v) => setStatus.mutate({ playerId: p.id, status: v })}>
+                  <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="available">Available</SelectItem>
+                    <SelectItem value="not_available">Not available</SelectItem>
+                    <SelectItem value="awaiting">Awaiting response</SelectItem>
+                    <SelectItem value="injured">Injured</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

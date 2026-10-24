@@ -22,6 +22,7 @@ type Cat = "all" | string;
 export default function Gallery() {
   const { items: dbItems, ready } = useGalleryItems();
   const [filter, setFilter] = useState<Cat>("all");
+  const [seasonFilter, setSeasonFilter] = useState<Cat>("all");
 
   useEffect(() => {
     applySeo({
@@ -36,19 +37,24 @@ export default function Gallery() {
     if (dbItems.length > 0) {
       return dbItems.map((item) => ({
         src: item.imageUrl,
-        alt: item.caption ?? "Dog grooming gallery photo",
+        alt: item.caption ?? "Club gallery photo",
         category: item.category ?? undefined,
+        season: item.season ?? undefined,
       }));
     }
     return gallery.map((g) => ({
       src: g.src,
       alt: g.alt,
       category: g.category,
+      season: undefined as string | undefined,
     }));
   }, [dbItems, ready]);
 
   const allCategories = Array.from(
     new Set(combinedItems.map((i) => i.category).filter(Boolean))
+  ) as string[];
+  const allSeasons = Array.from(
+    new Set(combinedItems.map((i) => i.season).filter(Boolean))
   ) as string[];
 
   const FILTERS: { key: Cat; label: string }[] = [
@@ -57,8 +63,10 @@ export default function Gallery() {
   ];
 
   const visible = useMemo(
-    () => (filter === "all" ? combinedItems : combinedItems.filter((i) => i.category === filter)),
-    [filter, combinedItems]
+    () => combinedItems
+      .filter((i) => filter === "all" || i.category === filter)
+      .filter((i) => seasonFilter === "all" || i.season === seasonFilter),
+    [filter, seasonFilter, combinedItems]
   );
 
   return (
@@ -75,9 +83,9 @@ export default function Gallery() {
         </div>
       </section>
 
-      {FILTERS.length > 1 && (
+      {(FILTERS.length > 1 || allSeasons.length > 0) && (
         <section className="sticky top-[64px] sm:top-[72px] lg:top-[120px] z-20 bg-background/95 backdrop-blur border-b border-border">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex gap-2 overflow-x-auto no-scrollbar">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 overflow-x-auto no-scrollbar">
             {FILTERS.map((f) => (
               <button
                 key={f.key}
@@ -92,6 +100,17 @@ export default function Gallery() {
                 {f.label}
               </button>
             ))}
+            {allSeasons.length > 0 && (
+              <select
+                value={seasonFilter}
+                onChange={(e) => setSeasonFilter(e.target.value)}
+                className="shrink-0 ml-2 px-3 py-2 rounded-full text-sm font-semibold bg-card border border-card-border text-foreground/80"
+                data-testid="filter-season"
+              >
+                <option value="all">All seasons</option>
+                {allSeasons.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
           </div>
         </section>
       )}

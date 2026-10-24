@@ -15,6 +15,11 @@ import Competitions from "@/pages/competitions";
 import CompetitionDetail from "@/pages/competition-detail";
 import Sponsors from "@/pages/sponsors";
 import Fundraising from "@/pages/fundraising";
+import Tournaments from "@/pages/tournaments";
+import Committee from "@/pages/committee";
+import Safeguarding from "@/pages/safeguarding";
+import Join from "@/pages/join";
+import Complaints from "@/pages/complaints";
 import Gallery from "@/pages/gallery";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
@@ -32,6 +37,11 @@ function AppRouter() {
       <Route path="/fixtures" component={Fixtures} />
       <Route path="/sponsors" component={Sponsors} />
       <Route path="/fundraising" component={Fundraising} />
+      <Route path="/tournaments" component={Tournaments} />
+      <Route path="/committee" component={Committee} />
+      <Route path="/safeguarding" component={Safeguarding} />
+      <Route path="/join" component={Join} />
+      <Route path="/complaints" component={Complaints} />
       <Route path="/gallery" component={Gallery} />
       <Route path="/about" component={About} />
       <Route path="/contact" component={Contact} />

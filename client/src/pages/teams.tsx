@@ -10,13 +10,15 @@ import { useQuery } from "@tanstack/react-query";
 import { SiteShell } from "@/components/site-shell";
 import { applySeo, breadcrumb } from "@/lib/seo";
 import { Users, Mail, Phone, Clock, ArrowRight } from "lucide-react";
+import { formatDate } from "@/lib/format";
 import config from "@/lib/tenant";
-import type { Team } from "@shared/schema";
+import type { Team, TrainingSession } from "@shared/schema";
 
 const { brand } = config;
 
 export default function Teams() {
   const { data: teams = [] } = useQuery<Team[]>({ queryKey: ["/api/public/teams"] });
+  const { data: sessions = [] } = useQuery<TrainingSession[]>({ queryKey: ["/api/public/training"] });
 
   useEffect(() => {
     applySeo({
@@ -47,7 +49,13 @@ export default function Teams() {
             <p className="text-center text-muted-foreground text-sm py-8">Team details are coming soon — check back shortly.</p>
           ) : (
             <div className="grid sm:grid-cols-2 gap-5">
-              {teams.map((t) => <TeamCard key={t.id} team={t} />)}
+              {teams.map((t) => {
+                const today = new Date().toISOString().slice(0, 10);
+                const nextSession = sessions
+                  .filter((s) => s.team === t.name && s.date >= today)
+                  .sort((a, b) => a.date.localeCompare(b.date))[0];
+                return <TeamCard key={t.id} team={t} nextSession={nextSession} />;
+              })}
             </div>
           )}
         </div>
@@ -56,7 +64,7 @@ export default function Teams() {
   );
 }
 
-function TeamCard({ team }: { team: Team }) {
+function TeamCard({ team, nextSession }: { team: Team; nextSession?: TrainingSession }) {
   return (
     <div className="bg-card border border-card-border rounded-2xl overflow-hidden shadow-sm flex flex-col">
       <div className="relative aspect-[16/9] bg-gradient-to-br from-primary/30 via-accent/15 to-primary/40 flex items-center justify-center overflow-hidden">
@@ -81,6 +89,13 @@ function TeamCard({ team }: { team: Team }) {
           )}
           {team.trainingInfo && (
             <p className="flex items-center gap-1.5 text-muted-foreground"><Clock className="size-3.5 shrink-0" /> {team.trainingInfo}</p>
+          )}
+          {nextSession && (
+            <p className="flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="size-3.5 shrink-0" />
+              Next training: {formatDate(nextSession.date)}{nextSession.startTime ? ` · ${nextSession.startTime}` : ""}
+              {nextSession.status === "cancelled" && <span className="text-destructive font-semibold"> (cancelled)</span>}
+            </p>
           )}
           {team.coachEmail && (
             <a href={`mailto:${team.coachEmail}`} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary"><Mail className="size-3.5 shrink-0" /> {team.coachEmail}</a>

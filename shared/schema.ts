@@ -29,7 +29,8 @@ export const galleryItems = sqliteTable("gallery_items", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   imageUrl: text("image_url").notNull(),
   caption: text("caption").default(""),
-  category: text("category").default(""), // e.g. team name, used as a filter
+  category: text("category").default(""), // e.g. "Matches", "Training", "Tournaments", "Sponsors"
+  season: text("season").default(""), // e.g. "2026/27"
   sortOrder: integer("sort_order").notNull().default(0),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at").notNull(),
@@ -367,3 +368,149 @@ export const fundraisers = sqliteTable("fundraisers", {
 export const insertFundraiserSchema = createInsertSchema(fundraisers).omit({ id: true, createdAt: true });
 export type InsertFundraiser = z.infer<typeof insertFundraiserSchema>;
 export type Fundraiser = typeof fundraisers.$inferSelect;
+
+// Training sessions — discrete sessions rather than an abstract recurrence
+// rule, so admin can cancel or add a one-off extra without fighting a
+// recurring-event model. Availability is tracked the same way as fixtures.
+export const trainingSessions = sqliteTable("training_sessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  team: text("team").notNull(),
+  date: text("date").notNull(), // "YYYY-MM-DD"
+  startTime: text("start_time").notNull().default(""), // "HH:MM"
+  endTime: text("end_time").notNull().default(""),
+  venue: text("venue").notNull().default(""),
+  status: text("status").notNull().default("scheduled"), // "scheduled" | "cancelled"
+  notes: text("notes").notNull().default(""),
+  createdAt: integer("created_at").notNull(),
+});
+export const insertTrainingSessionSchema = createInsertSchema(trainingSessions).omit({ id: true, createdAt: true });
+export type InsertTrainingSession = z.infer<typeof insertTrainingSessionSchema>;
+export type TrainingSession = typeof trainingSessions.$inferSelect;
+
+export const trainingAvailability = sqliteTable("training_availability", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sessionId: integer("session_id").notNull(),
+  playerId: integer("player_id").notNull(),
+  status: text("status").notNull().default("awaiting"), // same vocabulary as fixture availability
+  updatedAt: integer("updated_at").notNull(),
+});
+export const insertTrainingAvailabilitySchema = createInsertSchema(trainingAvailability).omit({ id: true, updatedAt: true });
+export type InsertTrainingAvailability = z.infer<typeof insertTrainingAvailabilitySchema>;
+export type TrainingAvailability = typeof trainingAvailability.$inferSelect;
+
+// Tournaments — one-off multi-detail events, separate from the weekly
+// league fixture list.
+export const tournaments = sqliteTable("tournaments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  ageGroup: text("age_group").notNull().default(""),
+  date: text("date").notNull().default(""),
+  arrivalTime: text("arrival_time").notNull().default(""),
+  startTime: text("start_time").notNull().default(""),
+  finishTime: text("finish_time").notNull().default(""),
+  location: text("location").notNull().default(""),
+  address: text("address").notNull().default(""),
+  pitch: text("pitch").notNull().default(""),
+  pitchType: text("pitch_type").notNull().default(""),
+  format: text("format").notNull().default(""), // e.g. "5-a-side"
+  photoUrl: text("photo_url").notNull().default(""),
+  infoUrl: text("info_url").notNull().default(""),
+  status: text("status").notNull().default("upcoming"), // "upcoming" | "completed" | "archived"
+  createdAt: integer("created_at").notNull(),
+});
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true });
+export type InsertTournament = z.infer<typeof insertTournamentSchema>;
+export type Tournament = typeof tournaments.$inferSelect;
+
+// Team kit library — the colours/photos behind a fixture's "home"/"away"/
+// "alternative" kit selector.
+export const teamKits = sqliteTable("team_kits", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  team: text("team").notNull(),
+  kitType: text("kit_type").notNull(), // "home" | "away" | "alternative"
+  shirtColour: text("shirt_colour").notNull().default(""),
+  shorts: text("shorts").notNull().default(""),
+  socks: text("socks").notNull().default(""),
+  gkShirt: text("gk_shirt").notNull().default(""),
+  photoUrl: text("photo_url").notNull().default(""),
+  createdAt: integer("created_at").notNull(),
+});
+export const insertTeamKitSchema = createInsertSchema(teamKits).omit({ id: true, createdAt: true });
+export type InsertTeamKit = z.infer<typeof insertTeamKitSchema>;
+export type TeamKit = typeof teamKits.$inferSelect;
+
+// Committee / club contacts.
+export const committeeMembers = sqliteTable("committee_members", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  role: text("role").notNull().default(""), // e.g. "Club Secretary", "Welfare Officer"
+  email: text("email").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  photoUrl: text("photo_url").notNull().default(""),
+  visibility: text("visibility").notNull().default("public"), // "public" | "admin_only"
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+});
+export const insertCommitteeMemberSchema = createInsertSchema(committeeMembers).omit({ id: true, createdAt: true });
+export type InsertCommitteeMember = z.infer<typeof insertCommitteeMemberSchema>;
+export type CommitteeMember = typeof committeeMembers.$inferSelect;
+
+// Policy Link Manager — external safeguarding/FA/Northumberland FA policy
+// links, admin-editable so they can be kept current without a redeploy.
+// No specific policy URLs are seeded — that text has to come from the
+// club's Welfare Officer, not be guessed.
+export const policyLinks = sqliteTable("policy_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+});
+export const insertPolicyLinkSchema = createInsertSchema(policyLinks).omit({ id: true, createdAt: true });
+export type InsertPolicyLink = z.infer<typeof insertPolicyLinkSchema>;
+export type PolicyLink = typeof policyLinks.$inferSelect;
+
+// Waiting list — "Join the Wolfpack" registrations of interest.
+export const waitingListEntries = sqliteTable("waiting_list_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  parentName: text("parent_name").notNull(),
+  parentEmail: text("parent_email").notNull(),
+  parentPhone: text("parent_phone").notNull().default(""),
+  playerName: text("player_name").notNull(),
+  school: text("school").notNull().default(""),
+  schoolYear: text("school_year").notNull().default(""),
+  position: text("position").notNull().default(""),
+  secondaryPosition: text("secondary_position").notNull().default(""),
+  footballLevel: text("football_level").notNull().default(""),
+  saturdayLeague: text("saturday_league").notNull().default(""),
+  division: text("division").notNull().default(""),
+  ageGroup: text("age_group").notNull().default(""),
+  status: text("status").notNull().default("new"), // new|waiting|contacted|trial_offered|trial_arranged|place_offered|joined|declined|archived
+  notes: text("notes").notNull().default(""), // admin-only
+  createdAt: integer("created_at").notNull(),
+});
+export const insertWaitingListEntrySchema = createInsertSchema(waitingListEntries).omit({ id: true, createdAt: true, status: true, notes: true });
+export type InsertWaitingListEntry = z.infer<typeof insertWaitingListEntrySchema>;
+export type WaitingListEntry = typeof waitingListEntries.$inferSelect;
+
+// Complaints.
+export const complaints = sqliteTable("complaints", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  reference: text("reference").notNull().unique(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull().default(""),
+  reason: text("reason").notNull(),
+  dateOccurred: text("date_occurred").notNull().default(""),
+  desiredResolution: text("desired_resolution").notNull().default(""),
+  attachmentUrl: text("attachment_url").notNull().default(""),
+  status: text("status").notNull().default("received"), // received|under_review|response_required|responded|resolved|closed
+  targetResponseAt: integer("target_response_at").notNull(), // submission + 10 working days
+  adminNotes: text("admin_notes").notNull().default(""),
+  createdAt: integer("created_at").notNull(),
+});
+export const insertComplaintSchema = createInsertSchema(complaints).omit({
+  id: true, createdAt: true, reference: true, status: true, targetResponseAt: true, adminNotes: true,
+});
+export type InsertComplaint = z.infer<typeof insertComplaintSchema>;
+export type Complaint = typeof complaints.$inferSelect;

@@ -156,6 +156,40 @@ export async function sendOutbidEmail(opts: {
   } catch (e) { console.error("[email] outbid send failed", e); }
 }
 
+// Sent to a parent/guardian the moment they submit the "Join the Wolfpack"
+// waiting-list form. Copy is the exact wording from the club's brief —
+// not run through the admin-editable template system, since it's fixed.
+export async function sendWaitingListConfirmEmail(opts: { parentEmail: string }): Promise<void> {
+  const cfg = getEmailConfig();
+  if (!cfg || !cfg.enabled || !cfg.fromEmail || !opts.parentEmail) return;
+  const clubName = getBusinessConfig()?.name ?? "the club";
+  try {
+    await sendViaResend({
+      from: fromHeader(cfg, clubName),
+      to: opts.parentEmail,
+      bcc: cfg.bccOwner && cfg.ownerEmail ? cfg.ownerEmail : undefined,
+      subject: "Hi from the Wolfpack! 🐺⚽️🐺",
+      text: "Thank you for your interest in Harton & Westoe Wolves. We really appreciate you taking the time to register your interest. We'll be in touch if a suitable space becomes available. In the meantime, stay positive and good luck to your child on their football journey!",
+    });
+  } catch (e) { console.error("[email] waiting list confirm failed", e); }
+}
+
+// Sent to the complainant immediately on submission, with their reference.
+export async function sendComplaintConfirmEmail(opts: { email: string; reference: string }): Promise<void> {
+  const cfg = getEmailConfig();
+  if (!cfg || !cfg.enabled || !cfg.fromEmail || !opts.email) return;
+  const clubName = getBusinessConfig()?.name ?? "the club";
+  try {
+    await sendViaResend({
+      from: fromHeader(cfg, clubName),
+      to: opts.email,
+      bcc: cfg.bccOwner && cfg.ownerEmail ? cfg.ownerEmail : undefined,
+      subject: `We've received your complaint — ref ${opts.reference}`,
+      text: `Thank you for letting us know. Your reference is ${opts.reference} — please quote it in any follow-up.\n\n${clubName} aims to respond within 10 working days. We'll be in touch.`,
+    });
+  } catch (e) { console.error("[email] complaint confirm failed", e); }
+}
+
 export async function sendTestEmail(toOverride?: string) {
   const cfg = getEmailConfig();
   if (!cfg || !cfg.enabled) throw new Error('"Send emails" is switched off in Admin > Emails — turn it on to send anything, including this test.');

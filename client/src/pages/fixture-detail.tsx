@@ -20,7 +20,7 @@ import { applySeo, breadcrumb } from "@/lib/seo";
 import { formatDate } from "@/lib/format";
 import { MapPin, Clock, Shirt, ArrowLeft, ArrowRight, Users, Loader2 } from "lucide-react";
 import config from "@/lib/tenant";
-import type { Fixture, Player } from "@shared/schema";
+import type { Fixture, Player, TeamKit } from "@shared/schema";
 
 const { brand } = config;
 
@@ -41,6 +41,11 @@ export default function FixtureDetail() {
   const { data: players = [] } = useQuery<Player[]>({ queryKey: ["/api/public/players"] });
 
   const fixture = fixtures.find((f) => f.id === fixtureId);
+  const { data: kits = [] } = useQuery<TeamKit[]>({
+    queryKey: [`/api/public/kits?team=${encodeURIComponent(fixture?.team ?? "")}`],
+    enabled: !!fixture,
+  });
+  const matchKit = fixture ? kits.find((k) => k.kitType === fixture.kit) : undefined;
   const playerName = (id: number) => players.find((p) => p.id === id)?.displayName ?? `Player #${id}`;
 
   useEffect(() => {
@@ -116,7 +121,11 @@ export default function FixtureDetail() {
                 <MapPin className="size-4 shrink-0" /> Get directions
               </a>
             )}
-            <div className="flex items-center gap-2"><Shirt className="size-4 text-primary shrink-0" /> {KIT_LABEL[fixture.kit]}</div>
+            <div className="flex items-center gap-2">
+              <Shirt className="size-4 text-primary shrink-0" />
+              {KIT_LABEL[fixture.kit]}
+              {matchKit?.shirtColour && ` — ${matchKit.shirtColour} shirt${matchKit.shorts ? `, ${matchKit.shorts} shorts` : ""}`}
+            </div>
             {fixture.league && <div className="text-muted-foreground">{fixture.league}</div>}
           </div>
 

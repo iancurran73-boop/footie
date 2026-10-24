@@ -32,6 +32,11 @@ const FALLBACK_PAGES: SitePage[] = [
   { id: -9, slug: "gallery", navLabel: "Gallery", path: "/gallery", kind: "core", layout: null, sortOrder: 8, visible: true },
   { id: -10, slug: "about", navLabel: "About", path: "/about", kind: "core", layout: null, sortOrder: 9, visible: true },
   { id: -11, slug: "contact", navLabel: "Contact", path: "/contact", kind: "core", layout: null, sortOrder: 10, visible: true },
+  { id: -12, slug: "tournaments", navLabel: "Tournaments", path: "/tournaments", kind: "core", layout: null, sortOrder: 11, visible: true },
+  { id: -13, slug: "committee", navLabel: "Committee", path: "/committee", kind: "core", layout: null, sortOrder: 12, visible: true },
+  { id: -14, slug: "safeguarding", navLabel: "Safeguarding", path: "/safeguarding", kind: "core", layout: null, sortOrder: 13, visible: true },
+  { id: -15, slug: "join", navLabel: "Join the Wolfpack", path: "/join", kind: "core", layout: null, sortOrder: 14, visible: true },
+  { id: -16, slug: "complaints", navLabel: "Complaints", path: "/complaints", kind: "core", layout: null, sortOrder: 15, visible: false },
 ];
 
 async function fetchPages(): Promise<SitePage[]> {

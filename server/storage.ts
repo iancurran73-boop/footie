@@ -16,6 +16,14 @@ import {
   playerVotes,
   sponsors,
   fundraisers,
+  trainingSessions,
+  trainingAvailability,
+  tournaments,
+  teamKits,
+  committeeMembers,
+  policyLinks,
+  waitingListEntries,
+  complaints,
 } from "@shared/schema";
 import type {
   Settings, InsertSettings,
@@ -35,6 +43,14 @@ import type {
   PlayerVote, InsertPlayerVote,
   Sponsor, InsertSponsor,
   Fundraiser, InsertFundraiser,
+  TrainingSession, InsertTrainingSession,
+  TrainingAvailability, InsertTrainingAvailability,
+  Tournament, InsertTournament,
+  TeamKit, InsertTeamKit,
+  CommitteeMember, InsertCommitteeMember,
+  PolicyLink, InsertPolicyLink,
+  WaitingListEntry, InsertWaitingListEntry,
+  Complaint, InsertComplaint,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
@@ -74,6 +90,7 @@ sqlite.exec(`
     image_url TEXT NOT NULL,
     caption TEXT DEFAULT '',
     category TEXT DEFAULT '',
+    season TEXT DEFAULT '',
     sort_order INTEGER NOT NULL DEFAULT 0,
     active INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL
@@ -269,6 +286,104 @@ sqlite.exec(`
     status TEXT NOT NULL DEFAULT 'active',
     created_at INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS training_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team TEXT NOT NULL,
+    date TEXT NOT NULL,
+    start_time TEXT NOT NULL DEFAULT '',
+    end_time TEXT NOT NULL DEFAULT '',
+    venue TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'scheduled',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS training_availability (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    player_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'awaiting',
+    updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS tournaments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    age_group TEXT NOT NULL DEFAULT '',
+    date TEXT NOT NULL DEFAULT '',
+    arrival_time TEXT NOT NULL DEFAULT '',
+    start_time TEXT NOT NULL DEFAULT '',
+    finish_time TEXT NOT NULL DEFAULT '',
+    location TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    pitch TEXT NOT NULL DEFAULT '',
+    pitch_type TEXT NOT NULL DEFAULT '',
+    format TEXT NOT NULL DEFAULT '',
+    photo_url TEXT NOT NULL DEFAULT '',
+    info_url TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'upcoming',
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS team_kits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team TEXT NOT NULL,
+    kit_type TEXT NOT NULL,
+    shirt_colour TEXT NOT NULL DEFAULT '',
+    shorts TEXT NOT NULL DEFAULT '',
+    socks TEXT NOT NULL DEFAULT '',
+    gk_shirt TEXT NOT NULL DEFAULT '',
+    photo_url TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS committee_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    photo_url TEXT NOT NULL DEFAULT '',
+    visibility TEXT NOT NULL DEFAULT 'public',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS policy_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS waiting_list_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_name TEXT NOT NULL,
+    parent_email TEXT NOT NULL,
+    parent_phone TEXT NOT NULL DEFAULT '',
+    player_name TEXT NOT NULL,
+    school TEXT NOT NULL DEFAULT '',
+    school_year TEXT NOT NULL DEFAULT '',
+    position TEXT NOT NULL DEFAULT '',
+    secondary_position TEXT NOT NULL DEFAULT '',
+    football_level TEXT NOT NULL DEFAULT '',
+    saturday_league TEXT NOT NULL DEFAULT '',
+    division TEXT NOT NULL DEFAULT '',
+    age_group TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'new',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS complaints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reference TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL DEFAULT '',
+    reason TEXT NOT NULL,
+    date_occurred TEXT NOT NULL DEFAULT '',
+    desired_resolution TEXT NOT NULL DEFAULT '',
+    attachment_url TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'received',
+    target_response_at INTEGER NOT NULL,
+    admin_notes TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
 `);
 
 // --- seed defaults if empty ---
@@ -297,6 +412,11 @@ const seedIfEmpty = () => {
       { slug: "gallery", navLabel: "Gallery", path: "/gallery", kind: "core", layout: null, sortOrder: 8, visible: true },
       { slug: "about", navLabel: "About", path: "/about", kind: "core", layout: null, sortOrder: 9, visible: true },
       { slug: "contact", navLabel: "Contact", path: "/contact", kind: "core", layout: null, sortOrder: 10, visible: true },
+      { slug: "tournaments", navLabel: "Tournaments", path: "/tournaments", kind: "core", layout: null, sortOrder: 11, visible: true },
+      { slug: "committee", navLabel: "Committee", path: "/committee", kind: "core", layout: null, sortOrder: 12, visible: true },
+      { slug: "safeguarding", navLabel: "Safeguarding", path: "/safeguarding", kind: "core", layout: null, sortOrder: 13, visible: true },
+      { slug: "join", navLabel: "Join the Wolfpack", path: "/join", kind: "core", layout: null, sortOrder: 14, visible: true },
+      { slug: "complaints", navLabel: "Complaints", path: "/complaints", kind: "core", layout: null, sortOrder: 15, visible: false },
     ];
     for (const p of coreSeed) db.insert(pages).values({ ...p, createdAt: now }).run();
   }
@@ -405,6 +525,50 @@ export interface IStorage {
   createFundraiser(data: InsertFundraiser): Promise<Fundraiser>;
   updateFundraiser(id: number, data: Partial<InsertFundraiser>): Promise<Fundraiser | undefined>;
   deleteFundraiser(id: number): Promise<boolean>;
+
+  // training
+  listTrainingSessions(team?: string): Promise<TrainingSession[]>;
+  getTrainingSession(id: number): Promise<TrainingSession | undefined>;
+  createTrainingSession(data: InsertTrainingSession): Promise<TrainingSession>;
+  updateTrainingSession(id: number, data: Partial<InsertTrainingSession>): Promise<TrainingSession | undefined>;
+  deleteTrainingSession(id: number): Promise<boolean>;
+  listTrainingAvailability(sessionId: number): Promise<TrainingAvailability[]>;
+  setTrainingAvailability(sessionId: number, playerId: number, status: string): Promise<TrainingAvailability>;
+
+  // tournaments
+  listTournaments(): Promise<Tournament[]>;
+  getTournament(id: number): Promise<Tournament | undefined>;
+  createTournament(data: InsertTournament): Promise<Tournament>;
+  updateTournament(id: number, data: Partial<InsertTournament>): Promise<Tournament | undefined>;
+  deleteTournament(id: number): Promise<boolean>;
+
+  // team kits
+  listTeamKits(team?: string): Promise<TeamKit[]>;
+  upsertTeamKit(team: string, kitType: string, data: Partial<InsertTeamKit>): Promise<TeamKit>;
+  deleteTeamKit(id: number): Promise<boolean>;
+
+  // committee
+  listCommitteeMembers(publicOnly: boolean): Promise<CommitteeMember[]>;
+  createCommitteeMember(data: InsertCommitteeMember): Promise<CommitteeMember>;
+  updateCommitteeMember(id: number, data: Partial<InsertCommitteeMember>): Promise<CommitteeMember | undefined>;
+  deleteCommitteeMember(id: number): Promise<boolean>;
+
+  // policy links
+  listPolicyLinks(): Promise<PolicyLink[]>;
+  createPolicyLink(data: InsertPolicyLink): Promise<PolicyLink>;
+  updatePolicyLink(id: number, data: Partial<InsertPolicyLink>): Promise<PolicyLink | undefined>;
+  deletePolicyLink(id: number): Promise<boolean>;
+
+  // waiting list
+  listWaitingList(): Promise<WaitingListEntry[]>;
+  createWaitingListEntry(data: InsertWaitingListEntry): Promise<WaitingListEntry>;
+  updateWaitingListEntry(id: number, data: Partial<WaitingListEntry>): Promise<WaitingListEntry | undefined>;
+
+  // complaints
+  listComplaints(): Promise<Complaint[]>;
+  getComplaintByReference(reference: string): Promise<Complaint | undefined>;
+  createComplaint(data: InsertComplaint & { reference: string; targetResponseAt: number }): Promise<Complaint>;
+  updateComplaint(id: number, data: Partial<Complaint>): Promise<Complaint | undefined>;
 
   // competitions
   listCompetitions(): Promise<Competition[]>;
@@ -686,6 +850,137 @@ export class DatabaseStorage implements IStorage {
   async deleteFundraiser(id: number) {
     const r = db.delete(fundraisers).where(eq(fundraisers.id, id)).run();
     return r.changes > 0;
+  }
+
+  async listTrainingSessions(team?: string) {
+    const rows = team
+      ? db.select().from(trainingSessions).where(eq(trainingSessions.team, team)).orderBy(asc(trainingSessions.date)).all()
+      : db.select().from(trainingSessions).orderBy(asc(trainingSessions.date)).all();
+    return rows;
+  }
+  async getTrainingSession(id: number) {
+    return db.select().from(trainingSessions).where(eq(trainingSessions.id, id)).get();
+  }
+  async createTrainingSession(data: InsertTrainingSession) {
+    return db.insert(trainingSessions).values({ ...data, createdAt: Date.now() }).returning().get();
+  }
+  async updateTrainingSession(id: number, data: Partial<InsertTrainingSession>) {
+    db.update(trainingSessions).set(data).where(eq(trainingSessions.id, id)).run();
+    return db.select().from(trainingSessions).where(eq(trainingSessions.id, id)).get();
+  }
+  async deleteTrainingSession(id: number) {
+    const r = db.delete(trainingSessions).where(eq(trainingSessions.id, id)).run();
+    return r.changes > 0;
+  }
+  async listTrainingAvailability(sessionId: number) {
+    return db.select().from(trainingAvailability).where(eq(trainingAvailability.sessionId, sessionId)).all();
+  }
+  async setTrainingAvailability(sessionId: number, playerId: number, status: string) {
+    const existing = db.select().from(trainingAvailability)
+      .where(and(eq(trainingAvailability.sessionId, sessionId), eq(trainingAvailability.playerId, playerId)))
+      .get();
+    const now = Date.now();
+    if (existing) {
+      db.update(trainingAvailability).set({ status, updatedAt: now }).where(eq(trainingAvailability.id, existing.id)).run();
+      return db.select().from(trainingAvailability).where(eq(trainingAvailability.id, existing.id)).get()!;
+    }
+    return db.insert(trainingAvailability).values({ sessionId, playerId, status, updatedAt: now }).returning().get();
+  }
+
+  async listTournaments() {
+    return db.select().from(tournaments).orderBy(asc(tournaments.date)).all();
+  }
+  async getTournament(id: number) {
+    return db.select().from(tournaments).where(eq(tournaments.id, id)).get();
+  }
+  async createTournament(data: InsertTournament) {
+    return db.insert(tournaments).values({ ...data, createdAt: Date.now() }).returning().get();
+  }
+  async updateTournament(id: number, data: Partial<InsertTournament>) {
+    db.update(tournaments).set(data).where(eq(tournaments.id, id)).run();
+    return db.select().from(tournaments).where(eq(tournaments.id, id)).get();
+  }
+  async deleteTournament(id: number) {
+    const r = db.delete(tournaments).where(eq(tournaments.id, id)).run();
+    return r.changes > 0;
+  }
+
+  async listTeamKits(team?: string) {
+    return team
+      ? db.select().from(teamKits).where(eq(teamKits.team, team)).all()
+      : db.select().from(teamKits).all();
+  }
+  async upsertTeamKit(team: string, kitType: string, data: Partial<InsertTeamKit>) {
+    const existing = db.select().from(teamKits)
+      .where(and(eq(teamKits.team, team), eq(teamKits.kitType, kitType)))
+      .get();
+    if (existing) {
+      db.update(teamKits).set(data).where(eq(teamKits.id, existing.id)).run();
+      return db.select().from(teamKits).where(eq(teamKits.id, existing.id)).get()!;
+    }
+    return db.insert(teamKits).values({ team, kitType, ...data, createdAt: Date.now() }).returning().get();
+  }
+  async deleteTeamKit(id: number) {
+    const r = db.delete(teamKits).where(eq(teamKits.id, id)).run();
+    return r.changes > 0;
+  }
+
+  async listCommitteeMembers(publicOnly: boolean) {
+    const rows = publicOnly
+      ? db.select().from(committeeMembers).where(eq(committeeMembers.visibility, "public")).orderBy(asc(committeeMembers.sortOrder)).all()
+      : db.select().from(committeeMembers).orderBy(asc(committeeMembers.sortOrder)).all();
+    return rows;
+  }
+  async createCommitteeMember(data: InsertCommitteeMember) {
+    return db.insert(committeeMembers).values({ ...data, createdAt: Date.now() }).returning().get();
+  }
+  async updateCommitteeMember(id: number, data: Partial<InsertCommitteeMember>) {
+    db.update(committeeMembers).set(data).where(eq(committeeMembers.id, id)).run();
+    return db.select().from(committeeMembers).where(eq(committeeMembers.id, id)).get();
+  }
+  async deleteCommitteeMember(id: number) {
+    const r = db.delete(committeeMembers).where(eq(committeeMembers.id, id)).run();
+    return r.changes > 0;
+  }
+
+  async listPolicyLinks() {
+    return db.select().from(policyLinks).orderBy(asc(policyLinks.sortOrder)).all();
+  }
+  async createPolicyLink(data: InsertPolicyLink) {
+    return db.insert(policyLinks).values({ ...data, createdAt: Date.now() }).returning().get();
+  }
+  async updatePolicyLink(id: number, data: Partial<InsertPolicyLink>) {
+    db.update(policyLinks).set(data).where(eq(policyLinks.id, id)).run();
+    return db.select().from(policyLinks).where(eq(policyLinks.id, id)).get();
+  }
+  async deletePolicyLink(id: number) {
+    const r = db.delete(policyLinks).where(eq(policyLinks.id, id)).run();
+    return r.changes > 0;
+  }
+
+  async listWaitingList() {
+    return db.select().from(waitingListEntries).orderBy(desc(waitingListEntries.createdAt)).all();
+  }
+  async createWaitingListEntry(data: InsertWaitingListEntry) {
+    return db.insert(waitingListEntries).values({ ...data, createdAt: Date.now() }).returning().get();
+  }
+  async updateWaitingListEntry(id: number, data: Partial<WaitingListEntry>) {
+    db.update(waitingListEntries).set(data).where(eq(waitingListEntries.id, id)).run();
+    return db.select().from(waitingListEntries).where(eq(waitingListEntries.id, id)).get();
+  }
+
+  async listComplaints() {
+    return db.select().from(complaints).orderBy(desc(complaints.createdAt)).all();
+  }
+  async getComplaintByReference(reference: string) {
+    return db.select().from(complaints).where(eq(complaints.reference, reference)).get();
+  }
+  async createComplaint(data: InsertComplaint & { reference: string; targetResponseAt: number }) {
+    return db.insert(complaints).values({ ...data, createdAt: Date.now() }).returning().get();
+  }
+  async updateComplaint(id: number, data: Partial<Complaint>) {
+    db.update(complaints).set(data).where(eq(complaints.id, id)).run();
+    return db.select().from(complaints).where(eq(complaints.id, id)).get();
   }
 
   async listCompetitions() {

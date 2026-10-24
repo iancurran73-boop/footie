@@ -10,7 +10,7 @@ import {
   type EmailConfig,
   type EmailTemplates,
 } from "./storage";
-import { sendTestEmail, sendTicketConfirmEmail, sendOutbidEmail } from "./email";
+import { sendTestEmail, sendTicketConfirmEmail, sendOutbidEmail, sendWaitingListConfirmEmail, sendComplaintConfirmEmail } from "./email";
 import { resolveCompetition, issueTickets } from "./competitions";
 import { readSocialConfig, postToSocial } from "./social";
 import { computeSeasonStats, isVotingOpen, votingWindow, tallyVotes } from "./stats";
@@ -24,6 +24,13 @@ import {
   insertCompetitionSchema,
   insertSponsorSchema,
   insertFundraiserSchema,
+  insertTrainingSessionSchema,
+  insertTournamentSchema,
+  insertTeamKitSchema,
+  insertCommitteeMemberSchema,
+  insertPolicyLinkSchema,
+  insertWaitingListEntrySchema,
+  insertComplaintSchema,
 } from "@shared/schema";
 import { PAGE_LAYOUT_IDS } from "@shared/page-layouts";
 import { requireAdminAuth, issueSessionCookie, clearSessionCookie, checkLoginRateLimit, verifyPasscode } from "./adminAuth";
@@ -35,6 +42,23 @@ const numOrZero = (v: string) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+
+// 10 working days (Mon-Fri) from now, for the complaints target response date.
+function addWorkingDays(from: number, days: number): number {
+  const d = new Date(from);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return d.getTime();
+}
+
+function generateReference(prefix: string): string {
+  const rand = Math.random().toString(36).slice(2, 7).toUpperCase();
+  return `${prefix}-${Date.now().toString(36).toUpperCase()}-${rand}`;
+}
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // ========= ADMIN AUTH =========
@@ -382,6 +406,181 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
   app.delete("/api/admin/fundraisers/:id", async (req, res) => {
     res.json({ ok: await storage.deleteFundraiser(Number(req.params.id)) });
+  });
+
+  // ========= TRAINING =========
+
+  app.get("/api/public/training", async (req, res) => {
+    const team = req.query.team as string | undefined;
+    // Cancelled sessions stay visible (marked via `status`) rather than
+    // vanishing, so parents don't wonder whether training was ever planned.
+    res.json(await storage.listTrainingSessions(team));
+  });
+  app.get("/api/admin/training", async (req, res) => {
+    res.json(await storage.listTrainingSessions(req.query.team as string | undefined));
+  });
+  app.post("/api/admin/training", async (req, res) => {
+    const parse = insertTrainingSessionSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    res.json(await storage.createTrainingSession(parse.data));
+  });
+  app.patch("/api/admin/training/:id", async (req, res) => {
+    const parse = insertTrainingSessionSchema.partial().safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const updated = await storage.updateTrainingSession(Number(req.params.id), parse.data);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+  app.delete("/api/admin/training/:id", async (req, res) => {
+    res.json({ ok: await storage.deleteTrainingSession(Number(req.params.id)) });
+  });
+  app.get("/api/admin/training/:id/availability", async (req, res) => {
+    res.json(await storage.listTrainingAvailability(Number(req.params.id)));
+  });
+  app.post("/api/admin/training/:id/availability", async (req, res) => {
+    const parse = z.object({ playerId: z.number().int(), status: z.enum(["available", "not_available", "awaiting", "injured", "other"]) }).safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    res.json(await storage.setTrainingAvailability(Number(req.params.id), parse.data.playerId, parse.data.status));
+  });
+
+  // ========= TOURNAMENTS =========
+
+  app.get("/api/public/tournaments", async (_req, res) => {
+    const all = await storage.listTournaments();
+    res.json(all.filter((t) => t.status !== "archived"));
+  });
+  app.get("/api/admin/tournaments", async (_req, res) => {
+    res.json(await storage.listTournaments());
+  });
+  app.post("/api/admin/tournaments", async (req, res) => {
+    const parse = insertTournamentSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    res.json(await storage.createTournament(parse.data));
+  });
+  app.patch("/api/admin/tournaments/:id", async (req, res) => {
+    const parse = insertTournamentSchema.partial().safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const updated = await storage.updateTournament(Number(req.params.id), parse.data);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+  app.delete("/api/admin/tournaments/:id", async (req, res) => {
+    res.json({ ok: await storage.deleteTournament(Number(req.params.id)) });
+  });
+
+  // ========= TEAM KITS =========
+
+  app.get("/api/public/kits", async (req, res) => {
+    res.json(await storage.listTeamKits(req.query.team as string | undefined));
+  });
+  app.get("/api/admin/kits", async (req, res) => {
+    res.json(await storage.listTeamKits(req.query.team as string | undefined));
+  });
+  app.put("/api/admin/kits/:team/:kitType", async (req, res) => {
+    const { team, kitType } = req.params;
+    if (!["home", "away", "alternative"].includes(kitType)) return res.status(400).json({ error: "Invalid kit type" });
+    const parse = insertTeamKitSchema.omit({ team: true, kitType: true }).partial().safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    res.json(await storage.upsertTeamKit(decodeURIComponent(team), kitType, parse.data));
+  });
+  app.delete("/api/admin/kits/:id", async (req, res) => {
+    res.json({ ok: await storage.deleteTeamKit(Number(req.params.id)) });
+  });
+
+  // ========= COMMITTEE =========
+
+  app.get("/api/public/committee", async (_req, res) => {
+    res.json(await storage.listCommitteeMembers(true));
+  });
+  app.get("/api/admin/committee", async (_req, res) => {
+    res.json(await storage.listCommitteeMembers(false));
+  });
+  app.post("/api/admin/committee", async (req, res) => {
+    const parse = insertCommitteeMemberSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    res.json(await storage.createCommitteeMember(parse.data));
+  });
+  app.patch("/api/admin/committee/:id", async (req, res) => {
+    const parse = insertCommitteeMemberSchema.partial().safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const updated = await storage.updateCommitteeMember(Number(req.params.id), parse.data);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+  app.delete("/api/admin/committee/:id", async (req, res) => {
+    res.json({ ok: await storage.deleteCommitteeMember(Number(req.params.id)) });
+  });
+
+  // ========= SAFEGUARDING / POLICY LINKS =========
+
+  app.get("/api/public/policy-links", async (_req, res) => {
+    res.json(await storage.listPolicyLinks());
+  });
+  app.get("/api/admin/policy-links", async (_req, res) => {
+    res.json(await storage.listPolicyLinks());
+  });
+  app.post("/api/admin/policy-links", async (req, res) => {
+    const parse = insertPolicyLinkSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    res.json(await storage.createPolicyLink(parse.data));
+  });
+  app.patch("/api/admin/policy-links/:id", async (req, res) => {
+    const parse = insertPolicyLinkSchema.partial().safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const updated = await storage.updatePolicyLink(Number(req.params.id), parse.data);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+  app.delete("/api/admin/policy-links/:id", async (req, res) => {
+    res.json({ ok: await storage.deletePolicyLink(Number(req.params.id)) });
+  });
+
+  // ========= WAITING LIST =========
+
+  app.post("/api/public/waiting-list", async (req, res) => {
+    const parse = insertWaitingListEntrySchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const entry = await storage.createWaitingListEntry(parse.data);
+    sendWaitingListConfirmEmail({ parentEmail: entry.parentEmail }).catch((e) => console.error("[email]", e));
+    res.json({ ok: true, id: entry.id });
+  });
+  app.get("/api/admin/waiting-list", async (_req, res) => {
+    res.json(await storage.listWaitingList());
+  });
+  app.patch("/api/admin/waiting-list/:id", async (req, res) => {
+    const parse = z.object({
+      status: z.enum(["new", "waiting", "contacted", "trial_offered", "trial_arranged", "place_offered", "joined", "declined", "archived"]).optional(),
+      notes: z.string().optional(),
+    }).safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const updated = await storage.updateWaitingListEntry(Number(req.params.id), parse.data);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+
+  // ========= COMPLAINTS =========
+
+  app.post("/api/public/complaints", async (req, res) => {
+    const parse = insertComplaintSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const reference = generateReference("CMP");
+    const targetResponseAt = addWorkingDays(Date.now(), 10);
+    const complaint = await storage.createComplaint({ ...parse.data, reference, targetResponseAt });
+    sendComplaintConfirmEmail({ email: complaint.email, reference }).catch((e) => console.error("[email]", e));
+    res.json({ ok: true, reference });
+  });
+  app.get("/api/admin/complaints", async (_req, res) => {
+    res.json(await storage.listComplaints());
+  });
+  app.patch("/api/admin/complaints/:id", async (req, res) => {
+    const parse = z.object({
+      status: z.enum(["received", "under_review", "response_required", "responded", "resolved", "closed"]).optional(),
+      adminNotes: z.string().optional(),
+    }).safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+    const updated = await storage.updateComplaint(Number(req.params.id), parse.data);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
   });
 
   // ========= SOCIAL POSTING (admin) =========

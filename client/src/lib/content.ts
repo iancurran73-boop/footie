@@ -27,6 +27,7 @@ export interface GalleryItem {
   imageUrl: string;
   caption: string | null;
   category: string | null;
+  season: string | null;
   sortOrder: number;
   active: boolean;
   createdAt: number;
@@ -147,6 +148,7 @@ export function useGalleryItems() {
     imageUrl: item.imageUrl ?? item.image_url ?? "",
     caption: item.caption ?? null,
     category: item.category ?? null,
+    season: item.season ?? null,
     sortOrder: item.sortOrder ?? item.sort_order ?? 0,
     active: item.active ?? true,
     createdAt: item.createdAt ?? item.created_at ?? 0,
