@@ -469,6 +469,27 @@ const seedIfEmpty = () => {
     }
   }
 
+  // The club's real, currently-running fundraiser — same numbers as their
+  // Facebook "Stronger Together" post. No photo: admin can add one from
+  // Admin > Fundraising > Photo whenever they have one to hand; the gauge
+  // alone already matches the look of the Facebook graphic.
+  const fundraiserRows = db.select().from(fundraisers).all();
+  if (fundraiserRows.length === 0) {
+    db.insert(fundraisers).values({
+      name: "Stronger Together",
+      description: "Our goal, a brighter future.",
+      photoUrl: "",
+      startDate: "",
+      endDate: "",
+      targetAmount: 8007,
+      raisedAmount: 1924,
+      donationLink: "",
+      updatesText: "4 players' full expenditure covered for end of season 26/27 tournament so far!\nWell done to Tracy & Gail smashing the fundraising so far!",
+      status: "active",
+      createdAt: Date.now(),
+    }).run();
+  }
+
   // Example raffle + auction so Competitions isn't empty before the first
   // real one is set up — edit or delete these from Admin > Competitions.
   const competitionRows = db.select().from(competitions).all();
