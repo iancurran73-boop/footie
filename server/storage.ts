@@ -300,6 +300,23 @@ const seedIfEmpty = () => {
     ];
     for (const p of coreSeed) db.insert(pages).values({ ...p, createdAt: now }).run();
   }
+
+  const sponsorRows = db.select().from(sponsors).all();
+  if (sponsorRows.length === 0) {
+    const now = Date.now();
+    const sponsorSeed = [
+      { businessName: "Hygeia", logoUrl: "/img/sponsor-hygeia.png", sponsorshipType: "Club sponsor", sortOrder: 0 },
+      { businessName: "Edwards Commercial Cleaning", logoUrl: "/img/sponsor-edwards.png", sponsorshipType: "Club sponsor", sortOrder: 1 },
+      { businessName: "Sarah Mains", logoUrl: "/img/sponsor-sarahmains.jpg", sponsorshipType: "Club sponsor", sortOrder: 2 },
+    ];
+    for (const s of sponsorSeed) {
+      db.insert(sponsors).values({
+        businessName: s.businessName, logoUrl: s.logoUrl, description: "", websiteUrl: "", socialUrl: "",
+        sponsorshipType: s.sponsorshipType, periodStart: "", periodEnd: "", benefits: "", thankYouMessage: "",
+        active: true, sortOrder: s.sortOrder, createdAt: now,
+      }).run();
+    }
+  }
 };
 seedIfEmpty();
 

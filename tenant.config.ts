@@ -2,10 +2,8 @@
  * tenant.config.ts
  * ─────────────────────────
  * Harton & Westoe Wolves FC — South Shields.
- * Colours/logo: TODO — real crest + sponsor logos (Hygeia, Edwards Commercial
- * Cleaning) were shared but not yet uploaded as files; logoPath stays empty
- * (falls back to the BrandMark football-icon placeholder) until they are.
- * Navy/gold below are read off the real crest, not the brief's generic
+ * logoPath points at the real club crest (client/public/img/crest.png).
+ * Navy/gold below are read off that crest, not the brief's generic
  * "blue and white".
  */
 
@@ -18,7 +16,7 @@ const config: TenantConfig = {
     tagline: "Stronger Together",
     domain: "hartonwestoewolves.co.uk",
     instagram: "",
-    logoPath: "", // TODO: set once the crest is uploaded as a file
+    logoPath: "/img/crest.png",
     favicon: "/favicon.png",
     colors: {
       // HSL "H S% L%" — navy & gold, read from the club crest.
